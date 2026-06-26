@@ -1,61 +1,107 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/coi-serviceworker/0.1.7/coi-serviceworker.min.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SQLite + OPFS no Celular</title>
-
+    <title>Agenda SQLite + OPFS</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/coi-serviceworker/0.1.7/coi-serviceworker.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; padding: 20px; max-width: 500px; margin: auto; background-color: #f4f4f9; }
-        input, button { width: 100%; padding: 10px; margin: 8px 0; box-sizing: border-box; border-radius: 5px; border: 1px solid #ccc; }
-        button { background-color: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; }
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            max-width: 500px; 
+            margin: auto; 
+            background-color: #f4f4f9; 
+        }
+        h2 { margin-bottom: 5px; }
+        input, button { 
+            width: 100%; 
+            padding: 12px; 
+            margin: 8px 0; 
+            box-sizing: border-box; 
+            border-radius: 6px; 
+            border: 1px solid #ccc; 
+            font-size: 16px;
+        }
+        button { 
+            background-color: #007bff; 
+            color: white; 
+            border: none; 
+            cursor: pointer; 
+            font-weight: bold; 
+            transition: background 0.2s;
+        }
         button:hover { background-color: #0056b3; }
-        .contato-item { background: white; padding: 10px; margin: 5px 0; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        #status { color: green; font-weight: bold; font-size: 0.9em; }
+        button:disabled { background-color: #cccccc; cursor: not-allowed; }
+        .contato-item { 
+            background: white; 
+            padding: 12px; 
+            margin: 8px 0; 
+            border-radius: 6px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
+            font-size: 16px;
+        }
+        #status { 
+            font-weight: bold; 
+            font-size: 0.95em; 
+            margin-bottom: 15px;
+        }
+        .status-carregando { color: #e67e22; }
+        .status-pronto { color: #27ae60; }
+        .status-erro { color: #c0392b; }
     </style>
 </head>
 <body>
 
     <h2>Agenda SQLite + OPFS</h2>
-    <div id="status">Iniciando SQLite...</div>
+    <div id="status" class="status-carregando">Iniciando SQLite e verificando armazenamento...</div>
 
-    <input type="text" id="nome" placeholder="Nome do Contato">
-    <input type="text" id="telefone" placeholder="Telefone">
+    <input type="text" id="nome" placeholder="Nome do Contato" autocomplete="off">
+    <input type="tel" id="telefone" placeholder="Telefone" autocomplete="off">
     <button id="btnSalvar" disabled>Salvar no SQLite</button>
 
     <h3>Contatos Salvos:</h3>
     <div id="lista"></div>
 
     <script>
-        // 1. Inicializa o Web Worker que criamos
-        const worker = new Worker('worker.js');
+        // 1. Inicializa o Web Worker em segundo plano
+        const worker = new Worker('/worker.js');
 
         const statusDiv = document.getElementById('status');
         const btnSalvar = document.getElementById('btnSalvar');
         const listaDiv = document.getElementById('lista');
 
-        // 2. Escuta as respostas que o Worker manda de volta
+        // 2. Escuta as respostas enviadas pelo worker.js
         worker.onmessage = function(evento) {
             const { tipo, mensagem, dados } = evento.data;
 
+            // Banco pronto para uso
             if (tipo === 'STATUS') {
                 statusDiv.innerText = mensagem;
-                btnSalvar.disabled = false; // Ativa o botão quando o banco estiver pronto
-                worker.postMessage({ tipo: 'BUSCAR' }); // Busca dados salvos anteriormente
+                statusDiv.className = "status-pronto";
+                btnSalvar.disabled = false;
+                
+                // Dispara a busca inicial para ler o que já estava salvo no celular
+                worker.postMessage({ tipo: 'BUSCAR' });
             }
 
+            // Item inserido com sucesso no banco de dados
             if (tipo === 'SUCESSO_INSERIR') {
                 document.getElementById('nome').value = '';
                 document.getElementById('telefone').value = '';
-                worker.postMessage({ tipo: 'BUSCAR' }); // Atualiza a lista na tela
+                
+                // Solicita a lista atualizada para redesenhar a tela
+                worker.postMessage({ tipo: 'BUSCAR' });
             }
 
+            // Renderiza os contatos retornados pelo SELECT
             if (tipo === 'LISTA_CONTATOS') {
                 listaDiv.innerHTML = '';
-                if (dados.length === 0) {
-                    listaDiv.innerHTML = '<p style="color: gray;">Nenhum contato salvo ainda.</p>';
+                if (!dados || dados.length === 0) {
+                    listaDiv.innerHTML = '<p style="color: gray; font-style: italic;">Nenhum contato salvo ainda.</p>';
+                    return;
                 }
+                
                 dados.forEach(contato => {
                     listaDiv.innerHTML += `
                         <div class="contato-item">
@@ -65,22 +111,34 @@
                 });
             }
 
+            // Mecanismo de persistência secundária caso o OPFS direto falhe na Vercel
+            if (tipo === 'SALVAR_BACKUP') {
+                try {
+                    localStorage.setItem('meu_banco_backup', JSON.stringify(dados));
+                    console.log('Cópia de segurança sincronizada no dispositivo.');
+                } catch (e) {
+                    console.error('Falha ao gravar cópia local:', e);
+                }
+            }
+
+            // Captura de erros vindos do Worker
             if (tipo === 'ERRO') {
                 statusDiv.innerText = "Erro: " + mensagem;
-                statusDiv.style.color = "red";
+                statusDiv.className = "status-erro";
             }
         };
 
-        // 3. Envia os dados para o Worker salvar ao clicar no botão
+        // 3. Captura o clique e envia os dados limpos para o SQLite
         btnSalvar.onclick = function() {
-            const nome = document.getElementById('nome').value;
-            const telefone = document.getElementById('telefone').value;
+            const nome = document.getElementById('nome').value.trim();
+            const telefone = document.getElementById('telefone').value.trim();
 
-            if(!nome || !telefone) {
-                alert("Preencha todos os campos!");
+            if (!nome || !telefone) {
+                alert("Por favor, preencha o nome e o telefone!");
                 return;
             }
 
+            // Envia o comando estruturado para o arquivo de segundo plano
             worker.postMessage({
                 tipo: 'INSERIR',
                 dados: { nome, telefone }
