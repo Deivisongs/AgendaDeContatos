@@ -1,75 +1,33 @@
-// Importa o script oficial do SQLite WASM a partir de um CDN público
-importScripts(
-  "https://cdn.jsdelivr.net/npm/@sqlite.org/sqlite-wasm@3.45.1-build1/sqlite-wasm/jswasm/sqlite3.js",
-);
+// Carrega o arquivo que está na raiz da sua pasta pública da Vercel
+importScripts("sqlite3.js");
 
 let db;
 
-// Inicializa o ambiente SQLite
 self
   .sqlite3InitModule({
     print: console.log,
     printErr: console.error,
   })
   .then((sqlite3) => {
-    try {
-      // Verifica se o OPFS está disponível no navegador
-      if ("opfs" in sqlite3) {
-        // Abre (ou cria) o banco de dados direto no OPFS
-        db = new sqlite3.oo1.OpfsDb("/meu_banco.db", "c");
-        console.log("SQLite conectado ao OPFS com sucesso!", db.filename);
+    if ("opfs" in sqlite3) {
+      // Cria ou abre o banco de dados que vai residir permanentemente no celular do usuário
+      db = new sqlite3.oo1.OpfsDb("/meu_banco_local.db", "c");
 
-        // Cria uma tabela simples de contatos se ela não existir
-        db.exec(
-          "CREATE TABLE IF NOT EXISTS contatos (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, telefone TEXT);",
-        );
+      // Cria suas tabelas normalmente
+      db.exec(
+        "CREATE TABLE IF NOT EXISTS vendas (id INTEGER PRIMARY KEY, produto TEXT, valor REAL);",
+      );
 
-        // Avisa a página principal que o banco de dados está pronto
-        postMessage({ tipo: "STATUS", mensagem: "Banco de dados pronto!" });
-      } else {
-        postMessage({
-          tipo: "ERRO",
-          mensagem: "OPFS não suportado neste navegador.",
-        });
-      }
-    } catch (err) {
-      postMessage({ tipo: "ERRO", mensagem: err.message });
+      postMessage({ tipo: "PRONTO" });
+    } else {
+      postMessage({
+        tipo: "ERRO",
+        msg: "Navegador do celular não suporta OPFS.",
+      });
     }
   });
 
-// Escuta comandos enviados pela página principal (index.html)
-onmessage = function (evento) {
-  if (!db) return;
-
-  const { tipo, dados } = evento.data;
-
-  if (tipo === "INSERIR") {
-    try {
-      db.exec({
-        sql: "INSERT INTO contatos (nome, telefone) VALUES (?, ?);",
-        bind: [dados.nome, dados.telefone],
-      });
-      postMessage({ tipo: "SUCESSO_INSERIR" });
-    } catch (err) {
-      postMessage({ tipo: "ERRO", mensagem: err.message });
-    }
-  }
-
-  if (tipo === "BUSCAR") {
-    try {
-      const listaContatos = [];
-      // Executa a query e lê linha por linha
-      db.exec({
-        sql: "SELECT * FROM contatos;",
-        rowMode: "object",
-        callback: (row) => {
-          listaContatos.push(row);
-        },
-      });
-      // Devolve a lista de contatos para a interface gráfica
-      postMessage({ tipo: "LISTA_CONTATOS", dados: listaContatos });
-    } catch (err) {
-      postMessage({ tipo: "ERRO", mensagem: err.message });
-    }
-  }
+// Responde aos comandos do seu index.html (Inserir, Buscar, Deletar...)
+onmessage = function (e) {
+  // Sua lógica de INSERT / SELECT aqui...
 };
