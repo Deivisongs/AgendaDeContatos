@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQLite + OPFS no Celular</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 500px; margin: auto; background-color: #f4f4f9; }
+        input, button { width: 100%; padding: 10px; margin: 8px 0; box-sizing: border-box; border-radius: 5px; border: 1px solid #ccc; }
+        button { background-color: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background-color: #0056b3; }
+        .contato-item { background: white; padding: 10px; margin: 5px 0; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        #status { color: green; font-weight: bold; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+
+    <h2>Agenda SQLite + OPFS</h2>
+    <div id="status">Iniciando SQLite...</div>
+
+    <input type="text" id="nome" placeholder="Nome do Contato">
+    <input type="text" id="telefone" placeholder="Telefone">
+    <button id="btnSalvar" disabled>Salvar no SQLite</button>
+
+    <h3>Contatos Salvos:</h3>
+    <div id="lista"></div>
+
+    <script>
+        // 1. Inicializa o Web Worker que criamos
+        const worker = new Worker('worker.js');
+
+        const statusDiv = document.getElementById('status');
+        const btnSalvar = document.getElementById('btnSalvar');
+        const listaDiv = document.getElementById('lista');
+
+        // 2. Escuta as respostas que o Worker manda de volta
+        worker.onmessage = function(evento) {
+            const { tipo, mensagem, dados } = evento.data;
+
+            if (tipo === 'STATUS') {
+                statusDiv.innerText = mensagem;
+                btnSalvar.disabled = false; // Ativa o botão quando o banco estiver pronto
+                worker.postMessage({ tipo: 'BUSCAR' }); // Busca dados salvos anteriormente
+            }
+
+            if (tipo === 'SUCESSO_INSERIR') {
+                document.getElementById('nome').value = '';
+                document.getElementById('telefone').value = '';
+                worker.postMessage({ tipo: 'BUSCAR' }); // Atualiza a lista na tela
+            }
+
+            if (tipo === 'LISTA_CONTATOS') {
+                listaDiv.innerHTML = '';
+                if (dados.length === 0) {
+                    listaDiv.innerHTML = '<p style="color: gray;">Nenhum contato salvo ainda.</p>';
+                }
+                dados.forEach(contato => {
+                    listaDiv.innerHTML += `
+                        <div class="contato-item">
+                            <strong>${contato.nome}</strong> - 📱 ${contato.telefone}
+                        </div>
+                    `;
+                });
+            }
+
+            if (tipo === 'ERRO') {
+                statusDiv.innerText = "Erro: " + mensagem;
+                statusDiv.style.color = "red";
+            }
+        };
+
+        // 3. Envia os dados para o Worker salvar ao clicar no botão
+        btnSalvar.onclick = function() {
+            const nome = document.getElementById('nome').value;
+            const telefone = document.getElementById('telefone').value;
+
+            if(!nome || !telefone) {
+                alert("Preencha todos os campos!");
+                return;
+            }
+
+            worker.postMessage({
+                tipo: 'INSERIR',
+                dados: { nome, telefone }
+            });
+        };
+    </script>
+</body>
+</html>
