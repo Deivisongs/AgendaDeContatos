@@ -1,33 +1,25 @@
-// Carrega o arquivo que está na raiz da sua pasta pública da Vercel
-importScripts("sqlite3.js");
+importScripts('sqlite3.js');
 
 let db;
 
-self
-  .sqlite3InitModule({
-    print: console.log,
-    printErr: console.error,
-  })
-  .then((sqlite3) => {
-    if ("opfs" in sqlite3) {
-      // Cria ou abre o banco de dados que vai residir permanentemente no celular do usuário
-      db = new sqlite3.oo1.OpfsDb("/meu_banco_local.db", "c");
-
-      // Cria suas tabelas normalmente
-      db.exec(
-        "CREATE TABLE IF NOT EXISTS vendas (id INTEGER PRIMARY KEY, produto TEXT, valor REAL);",
-      );
-
-      postMessage({ tipo: "PRONTO" });
+self.sqlite3InitModule({
+  print: console.log,
+  printErr: console.error,
+}).then((sqlite3) => {
+  try {
+    if ('opfs' in sqlite3) {
+      db = new sqlite3.oo1.OpfsDb('/meu_banco.db', 'c');
+      console.log('SQLite conectado ao OPFS!', db.filename);
+      
+      db.exec("CREATE TABLE IF NOT EXISTS contatos (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, telefone TEXT);");
+      
+      postMessage({ tipo: 'STATUS', mensagem: 'Banco de dados pronto!' });
     } else {
-      postMessage({
-        tipo: "ERRO",
-        msg: "Navegador do celular não suporta OPFS.",
-      });
+      postMessage({ tipo: 'ERRO', mensagem: 'OPFS não suportado neste navegador ou ambiente inseguro.' });
     }
-  });
-
-// Responde aos comandos do seu index.html (Inserir, Buscar, Deletar...)
-onmessage = function (e) {
-  // Sua lógica de INSERT / SELECT aqui...
-};
+  } catch (err) {
+    // Tratamento melhorado: captura o erro mesmo se ele for uma string ou objeto sem .message
+    const mensagemErro = err instanceof Error ? err.message : String(err);
+    postMessage({ tipo: 'ERRO', mensagem: mensagemErro });
+  }
+});
