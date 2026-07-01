@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRUD Puro: HTML + CSS + JS + SQLite</title>
+    <style>
+        /* --- CSS PURO --- */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+        h2 { text-align: center; color: #333; }
+        .form-group {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            color: white;
+        }
+        .btn-add { background-color: #007bff; }
+        .btn-edit { background-color: #28a745; }
+        ul { list-style: none; padding: 0; margin: 0; }
+        li {
+            background: #fff;
+            padding: 12px;
+            border: 1px solid #eee;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .actions button {
+            padding: 5px 8px;
+            font-size: 12px;
+            margin-left: 5px;
+        }
+        .btn-action-edit { background-color: #ffc107; color: black; }
+        .btn-action-delete { background-color: #dc3545; }
+        .status { text-align: center; color: #666; font-style: italic; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>CRUD SQLite Puro</h2>
+    
+    <div class="form-group">
+        <input type="text" id="taskInput" placeholder="Digite a tarefa...">
+        <button id="saveBtn" class="btn-add">Add</button>
+    </div>
+
+    <p id="status" class="status">Carregando Banco de Dados SQLite...</p>
+    <ul id="taskList"></ul>
+</div>
+
+<script type="module">
+    // Importa o SQLite oficial compilado para WebAssembly via CDN do cdnjs
+    import sqlite3InitModule from 'https://cdnjs.cloudflare.com/ajax/libs/sqlite3/3.45.0/wasm/sqlite3.js';
+
+    let db;
+    let editingId = null;
+
+    const taskInput = document.getElementById('taskInput');
+    const saveBtn = document.getElementById('saveBtn');
+    const taskList = document.getElementById('taskList');
+    const statusText = document.getElementById('status');
+
+    // Inicializa o SQLite
+    async function initSQLite() {
+        try {
+            const sqlite3 = await sqlite3InitModule({
+                print: console.log,
+                printErr: console.error,
+            });
+
+            // Cria/abre um banco de dados persistente no navegador (localStorage-backed ou OPFS se disponível)
+            if ('opfs' in sqlite3) {
+                db = new sqlite3.oo1.OpfsDb('/tasks.db', 'c');
+            } else {
+                // Fallback para memória caso o navegador não suporte persistência direta em arquivo
+                db = new sqlite3.oo1.DB('/tasks.db', 'c');
+                statusText.innerText = "Aviso: Rodando em modo temporário (sem persistência).";
+            }
+
+            // Cria a tabela
+            db.exec("CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT);");
+            
+            statusText.style.display = 'none'; // Esconde o texto de carregamento
+            renderTasks();
+        } catch (err) {
+            statusText.innerText = "Erro ao carregar o SQLite: " + err.message;
+        }
+    }
+
+    // R - READ (Buscar itens do Banco)
+    function renderTasks() {
+        taskList.innerHTML = '';
+        
+        // Executa o SELECT
+        const rows = db.selectObjects("SELECT * FROM tasks");
+
+        if(rows.length === 0) {
+            taskList.innerHTML = '<li class="status">Nenhuma tarefa encontrada.</li>';
+            return;
+        }
+
+        rows.forEach(row => {
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <span>${row.title}</span>
+                <div class="actions">
+                    <button class="btn-action-edit" data-id="${row.id}" data-title="${row.title}">✏️</button>
+                    <button class="btn-action-delete" data-id="${row.id}">🗑️</button>
+                </div>
+            `;
+            taskList.appendChild(li);
+        });
+
+        // Adiciona eventos nos botões criados dinamicamente
+        document.querySelectorAll('.btn-action-edit').forEach(btn => btn.onclick = prepareEdit);
+        document.querySelectorAll('.btn-action-delete').forEach(btn => btn.onclick = deleteTask);
+    }
+
+    // C & U - CREATE e UPDATE
+    saveBtn.onclick = function() {
+        const title = taskInput.value.trim();
+        if (!title) return alert("Digite algo!");
+
+        if (editingId) {
+            // UPDATE
+            db.exec({
+                sql: "UPDATE tasks SET title = ? WHERE id = ?",
+                bind: [title, editingId]
+            });
+            editingId = null;
+            saveBtn.innerText = "Add";
+            saveBtn.className = "btn-add";
+        } else {
+            // CREATE
+            db.exec({
+                sql: "INSERT INTO tasks (title) VALUES (?)",
+                bind: [title]
+            });
+        }
+
+        taskInput.value = '';
+        renderTasks();
+    };
+
+    // Prepara formulário para Edição
+    function prepareEdit(e) {
+        editingId = e.target.getAttribute('data-id');
+        taskInput.value = e.target.getAttribute('data-title');
+        saveBtn.innerText = "Editar";
+        saveBtn.className = "btn-edit";
+    }
+
+    // D - DELETE
+    function deleteTask(e) {
+        const id = e.target.getAttribute('data-id');
+        if (confirm("Deseja realmente excluir?")) {
+            db.exec({
+                sql: "DELETE FROM tasks WHERE id = ?",
+                bind: [id]
+            });
+            renderTasks();
+        }
+    }
+
+    // Inicia o app
+    initSQLite();
+</script>
+
+</body>
+</html>
