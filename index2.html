@@ -124,41 +124,54 @@
 
     <script>
         document.addEventListener("DOMContentLoaded", () => {
-            const resultElement = document.getElementById('barcode-result');
-            const codeReader = new ZXing.BrowserMultiFormatReader();
+    const resultElement = document.getElementById('barcode-result');
+    const codeReader = new ZXing.BrowserMultiFormatReader();
 
-            // Configuração customizada avançada de vídeo para o ZXing
-            const constraints = {
-                video: {
-                    width: { min: 640, ideal: 1280 },
-                    height: { min: 480, ideal: 720 },
-                    facingMode: "environment",
-                    advanced: [{ focusMode: "continuous" }]
-                }
-            };
+    // Variáveis de controle para dupla confirmação
+    let ultimoCodigo = null;
+    let leiturasIdenticas = 0;
 
-            // Inicia o rastreamento contínuo da câmera
-            codeReader.decodeFromConstraints(constraints, 'preview', (result, err) => {
-                if (result) {
-                    // Sucesso na leitura!
-                    resultElement.innerText = result.text;
-                    
-                    // Feedback visual na borda
-                    const container = document.getElementById('scanner-container');
-                    container.style.borderColor = '#2e7d32';
-                    setTimeout(() => container.style.borderColor = '#333', 600);
-                }
+    const constraints = {
+        video: {
+            width: { min: 640, ideal: 1280 },
+            height: { min: 480, ideal: 720 },
+            facingMode: "environment",
+            advanced: [{ focusMode: "continuous" }]
+        }
+    };
 
-                if (err && !(err instanceof ZXing.NotFoundException)) {
-                    // Ignora erros normais de "código não encontrado no frame atual" para não travar
-                    console.error(err);
-                }
-            })
-            .catch((err) => {
-                console.error("Erro ao abrir a câmera com ZXing:", err);
-                resultElement.innerText = "Erro ao acessar a câmera.";
-            });
-        });
+    codeReader.decodeFromConstraints(constraints, 'preview', (result, err) => {
+        if (result) {
+            const codigoDetectado = result.text;
+
+            // FILTRO DE SEGURANÇA: Dupla confirmação
+            if (codigoDetectado === ultimoCodigo) {
+                leiturasIdenticas++;
+            } else {
+                ultimoCodigo = codigoDetectado;
+                leiturasIdenticas = 0;
+            }
+
+            // Só valida se o leitor ler exatamente o mesmo número 2 vezes seguidas
+            if (leiturasIdenticas >= 1) { 
+                resultElement.innerText = codigoDetectado;
+                
+                // Feedback visual na borda
+                const container = document.getElementById('scanner-container');
+                container.style.borderColor = '#2e7d32';
+                setTimeout(() => container.style.borderColor = '#333', 600);
+            }
+        }
+
+        if (err && !(err instanceof ZXing.NotFoundException)) {
+            console.error(err);
+        }
+    })
+    .catch((err) => {
+        console.error("Erro ao abrir a câmera:", err);
+        resultElement.innerText = "Erro ao acessar a câmera.";
+    });
+});
     </script>
 </body>
 </html>
