@@ -17,6 +17,7 @@
 
         h2 {
             color: #333;
+            text-align: center;
         }
 
         /* Container do Scanner */
@@ -53,7 +54,7 @@
             box-shadow: 0 0 8px red;
             z-index: 10;
             transform: translateY(-50%);
-            pointer-events: none; /* Não interfere no clique */
+            pointer-events: none;
         }
 
         /* Container de resultados */
@@ -75,6 +76,12 @@
             color: #2e7d32;
             word-break: break-all;
         }
+
+        .dica {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 8px;
+        }
     </style>
 </head>
 <body>
@@ -88,60 +95,62 @@
     <div id="resultado">
         <p>Aponte para um código de barras comercial</p>
         <div class="code-output" id="barcode-result">---</div>
+        <p class="dica">Dica: Afaste o celular cerca de 20 a 30 cm do produto para focar melhor.</p>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
 
     <script>
-        // Garante que o Quagga só inicia após o DOM carregar
         document.addEventListener("DOMContentLoaded", () => {
             
             const resultElement = document.getElementById('barcode-result');
             let lastResult = null;
             let countSameResult = 0;
 
-            // Inicializando o Quagga2
+            // Inicializando o Quagga2 com ajustes de alta resolução e foco contínuo
             Quagga.init({
                 inputStream: {
                     name: "Live",
                     type: "LiveStream",
-                    target: document.querySelector('#scanner-container'), // Onde a câmera vai renderizar
+                    target: document.querySelector('#scanner-container'),
                     constraints: {
-                        width: 640,
-                        height: 480,
-                        facingMode: "environment" // Força o uso da câmera traseira do celular
+                        // Resolução HD para linhas nítidas
+                        width: { min: 640, ideal: 1280 },
+                        height: { min: 480, ideal: 720 },
+                        facingMode: "environment",
+                        // Tenta forçar o foco automático contínuo do aparelho
+                        advanced: [{ focusMode: "continuous" }] 
                     },
                 },
                 locator: {
-                    patchSize: "medium", // Tamanho do detector (medium é o mais equilibrado)
-                    halfSample: true     // Processa em menor resolução para ganhar muita velocidade
+                    patchSize: "medium", 
+                    halfSample: false // Desativado para manter a nitidez máxima da imagem
                 },
-                numOfWorkers: navigator.hardwareConcurrency || 2, // Usa threads do processador para performance
+                numOfWorkers: navigator.hardwareConcurrency || 4, // Usa mais processamento paralelo
                 decoder: {
-                    // Tipos de códigos que ele vai tentar ler (adicione mais se precisar)
                     readers: [
-                        "ean_reader",      // Códigos de barras de produtos tradicionais (Supermercado)
-                        "ean_8_reader",    // Versão menor do EAN
-                        "code_128_reader", // Muito usado em logística e etiquetas de envio
-                        "code_39_reader"   // Usado na indústria industrial
-                    ]
+                        "ean_reader",      
+                        "ean_8_reader",    
+                        "code_128_reader", 
+                        "code_39_reader"   
+                    ],
+                    multiple: false
                 },
-                locate: true // Ativa o localizador visual para achar o código mesmo torto
+                locate: true 
             }, function(err) {
                 if (err) {
                     console.error("Erro ao iniciar o Quagga:", err);
                     resultElement.innerText = "Erro ao acessar a câmera.";
                     return;
                 }
-                console.log("Quagga inicializado com sucesso.");
+                console.log("Quagga inicializado em alta resolução.");
                 Quagga.start();
             });
 
-            // Evento disparado a cada leitura bem sucedida
+            // Processamento do resultado detectado
             Quagga.onDetected((data) => {
                 const code = data.codeResult.code;
 
-                // Validação simples de duplicidade para evitar leituras fantasmas (falsos positivos)
                 if (code === lastResult) {
                     countSameResult++;
                 } else {
@@ -149,19 +158,18 @@
                     countSameResult = 0;
                 }
 
-                // Só exibe se o leitor ler o mesmo código seguidamente por 3 vezes 
-                // Isso resolve o problema clássico do Quagga de ler números errados por pressa
-                if (countSameResult >= 3) {
+                // Ajustado para 2 leituras idênticas consecutivas devido à maior nitidez
+                if (countSameResult >= 2) {
                     resultElement.innerText = code;
                     
-                    // Efeito visual rápido de sucesso no container
+                    // Feedback visual rápido (borda fica verde)
                     const container = document.getElementById('scanner-container');
                     container.style.borderColor = '#2e7d32';
                     setTimeout(() => container.style.borderColor = '#333', 500);
                 }
             });
 
-            // (Opcional) Desenha linhas verdes ao redor do código na tela enquanto detecta
+            // Renderização das linhas de marcação verde na tela
             Quagga.onProcessed((result) => {
                 const drawingCtx = Quagga.canvas.ctx.overlay;
                 const drawingCanvas = Quagga.canvas.dom.overlay;
