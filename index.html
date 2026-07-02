@@ -4,9 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HTML5 Barcode Scanner</title>
+    <style>
+        #qr-reader {
+            width: 100%;
+            max-width: 600px;
+            margin: auto;
+        }
+        @media (max-width: 600px) {
+            #qr-reader {
+                width: 100%;
+            }
+        }
+    </style>
 </head>
 <body>
-    <div id="qr-reader" style="width:600px"></div>
+    <div id="qr-reader"></div>
     <div id="qr-reader-results"></div>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="script.js"></script>
