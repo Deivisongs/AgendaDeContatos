@@ -1,26 +1,88 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HTML5 Barcode Scanner</title>
+    <title>HTML5 Barcode Scanner Pro</title>
     <style>
         #qr-reader {
             width: 100%;
             max-width: 600px;
             margin: auto;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            overflow: hidden;
         }
-        @media (max-width: 600px) {
-            #qr-reader {
-                width: 100%;
-            }
+        #qr-reader-results {
+            max-width: 600px;
+            margin: 20px auto;
+            font-family: sans-serif;
+            padding: 10px;
         }
     </style>
 </head>
 <body>
     <div id="qr-reader"></div>
     <div id="qr-reader-results"></div>
+
     <script src="https://unpkg.com/html5-qrcode"></script>
-    <script src="script.js"></script>
+    <script>
+        function docReady(fn) {
+            if (document.readyState === "complete" || document.readyState === "interactive") {
+                setTimeout(fn, 1);
+            } else {
+                document.addEventListener("DOMContentLoaded", fn);
+            }
+        } 
+
+        docReady(function() {
+            var resultContainer = document.getElementById('qr-reader-results');
+            var lastResult, countResults = 0;
+
+            // Função para calcular o tamanho da caixa de leitura dinamicamente
+            // Isso ajuda a ler códigos pequenos de longe e códigos grandes de perto
+            function getQrBoxSize(viewfinderWidth, viewfinderHeight) {
+                let minEdgePercentage = 0.7; // Usa 70% da menor borda da tela
+                let minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
+                let qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
+                
+                // Garante que a caixa não seja ridiculamente pequena nem maior que o limite
+                if (qrboxSize < 200) return 200;
+                return qrboxSize;
+            }
+
+            // CONFIGURAÇÃO AVANÇADA PARA AMBIENTES DIFÍCEIS
+            var html5QrcodeScanner = new Html5QrcodeScanner(
+                "qr-reader", 
+                { 
+                    fps: 20, // Aumentado de 10 para 20: processa mais imagens por segundo (melhor para tremores e foco rápido)
+                    qrbox: getQrBoxSize, // Passando a função dinâmica em vez de um tamanho fixo
+                    aspectRatio: 1.0, // Força proporção quadrada para otimizar o foco do sensor
+                    experimentalFeatures: {
+                        useBarCodeDetectorIfSupported: true // Ativa aceleração de hardware nativa do celular se disponível
+                    }
+                }
+            );
+
+            function onScanSuccess(decodedText, decodedResult) {
+                if (decodedText !== lastResult) {
+                    ++countResults;
+                    lastResult = decodedText;
+                    console.log(`Scan result = ${decodedText}`, decodedResult);
+
+                    resultContainer.innerHTML += `<div>[${countResults}] - <strong>${decodedText}</strong></div>`;
+
+                    // Se quiser parar o scanner após o primeiro sucesso, descomente a linha abaixo:
+                    // html5QrcodeScanner.clear();
+                }
+            }
+
+            function onScanError(qrCodeError) {
+                // Erros de leitura em tempo real são silenciados para não travar o console
+            }
+
+            html5QrcodeScanner.render(onScanSuccess, onScanError);
+        });
+    </script>
 </body>
 </html>
