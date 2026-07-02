@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leitor de Código de Barras - Quagga2</title>
+    <title>Leitor de Código de Barras Ultra-Sensível</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -18,6 +18,7 @@
         h2 {
             color: #333;
             text-align: center;
+            margin-bottom: 10px;
         }
 
         /* Container do Scanner */
@@ -32,7 +33,7 @@
             background: #000;
         }
 
-        /* O Quagga injeta a tag <video> e <canvas> aqui dentro automaticamente */
+        /* TRUQUE DE FILTRO: Força aumento de contraste e nitidez no vídeo da câmera */
         #scanner-container video, 
         #scanner-container canvas.drawingBuffer {
             width: 100%;
@@ -41,21 +42,35 @@
             position: absolute;
             top: 0;
             left: 0;
+            filter: contrast(140%) brightness(95%) saturate(0%);
         }
 
-        /* Linha vermelha guia de mira (CSS Puro) */
+        /* Linha vermelha guia de mira centralizada */
         .scanner-laser {
             position: absolute;
             top: 50%;
             left: 5%;
             width: 90%;
-            height: 2px;
-            background-color: red;
-            box-shadow: 0 0 8px red;
+            height: 3px;
+            background-color: #ff0000;
+            box-shadow: 0 0 10px #ff0000;
             z-index: 10;
             transform: translateY(-50%);
             pointer-events: none;
         }
+
+        /* Sombras para indicar visualmente a área restrita de leitura */
+        .scanner-overlay-top, .scanner-overlay-bottom {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 35%;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 5;
+            pointer-events: none;
+        }
+        .scanner-overlay-top { top: 0; border-bottom: 1px dashed rgba(255,255,255,0.3); }
+        .scanner-overlay-bottom { bottom: 0; border-top: 1px dashed rgba(255,255,255,0.3); }
 
         /* Container de resultados */
         #resultado {
@@ -81,21 +96,28 @@
             font-size: 0.85rem;
             color: #666;
             margin-top: 8px;
+            line-height: 1.4;
         }
     </style>
 </head>
 <body>
 
-    <h2>Leitor de Código de Barras (Quagga2)</h2>
+    <h2>Leitor Avançado (Códigos Difíceis)</h2>
     
     <div id="scanner-container">
+        <div class="scanner-overlay-top"></div>
         <div class="scanner-laser"></div>
+        <div class="scanner-overlay-bottom"></div>
     </div>
 
     <div id="resultado">
-        <p>Aponte para um código de barras comercial</p>
+        <p>Centralize o código de barras na linha vermelha</p>
         <div class="code-output" id="barcode-result">---</div>
-        <p class="dica">Dica: Afaste o celular cerca de 20 a 30 cm do produto para focar melhor.</p>
+        <p class="dica">
+            <strong>Dicas para códigos apagados:</strong><br>
+            1. Mantenha o celular parado a cerca de 25 cm.<br>
+            2. Evite reflexos diretos de lâmpadas nas barras.
+        </p>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
@@ -107,26 +129,30 @@
             let lastResult = null;
             let countSameResult = 0;
 
-            // Inicializando o Quagga2 com ajustes de alta resolução e foco contínuo
             Quagga.init({
                 inputStream: {
                     name: "Live",
                     type: "LiveStream",
                     target: document.querySelector('#scanner-container'),
                     constraints: {
-                        // Resolução HD para linhas nítidas
                         width: { min: 640, ideal: 1280 },
                         height: { min: 480, ideal: 720 },
                         facingMode: "environment",
-                        // Tenta forçar o foco automático contínuo do aparelho
                         advanced: [{ focusMode: "continuous" }] 
                     },
                 },
-                locator: {
-                    patchSize: "medium", 
-                    halfSample: false // Desativado para manter a nitidez máxima da imagem
+                // Restringe a leitura estritamente para a faixa central de 30% da tela
+                area: { 
+                    top: "35%",    
+                    bottom: "35%", 
+                    left: "0%",
+                    right: "0%"
                 },
-                numOfWorkers: navigator.hardwareConcurrency || 4, // Usa mais processamento paralelo
+                locator: {
+                    patchSize: "large", // 'large' ajuda o algoritmo a rastrear códigos fracos/apagados
+                    halfSample: false   // Mantém a resolução máxima para não perder detalhes finos
+                },
+                numOfWorkers: navigator.hardwareConcurrency || 4,
                 decoder: {
                     readers: [
                         "ean_reader",      
@@ -139,15 +165,15 @@
                 locate: true 
             }, function(err) {
                 if (err) {
-                    console.error("Erro ao iniciar o Quagga:", err);
+                    console.error("Erro Quagga:", err);
                     resultElement.innerText = "Erro ao acessar a câmera.";
                     return;
                 }
-                console.log("Quagga inicializado em alta resolução.");
+                console.log("Quagga iniciado com modo de alta sensibilidade.");
                 Quagga.start();
             });
 
-            // Processamento do resultado detectado
+            // Captura e validação
             Quagga.onDetected((data) => {
                 const code = data.codeResult.code;
 
@@ -158,18 +184,18 @@
                     countSameResult = 0;
                 }
 
-                // Ajustado para 2 leituras idênticas consecutivas devido à maior nitidez
+                // Exige 2 confirmações consecutivas para evitar falsos positivos
                 if (countSameResult >= 2) {
                     resultElement.innerText = code;
                     
-                    // Feedback visual rápido (borda fica verde)
+                    // Feedback visual de sucesso
                     const container = document.getElementById('scanner-container');
                     container.style.borderColor = '#2e7d32';
                     setTimeout(() => container.style.borderColor = '#333', 500);
                 }
             });
 
-            // Renderização das linhas de marcação verde na tela
+            // Linhas verdes de rastreamento (ajustadas para respeitar o filtro e a área)
             Quagga.onProcessed((result) => {
                 const drawingCtx = Quagga.canvas.ctx.overlay;
                 const drawingCanvas = Quagga.canvas.dom.overlay;
