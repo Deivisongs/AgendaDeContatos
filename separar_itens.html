@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <link rel="icon" type="image/png" href="/favicon-96x96.png?v=20260629" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260629" />
+    <link rel="shortcut icon" href="/favicon.ico?v=20260629" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260629" />
+    <meta name="apple-mobile-web-app-title" content="FastColetor" />
+    <link rel="manifest" href="/site.webmanifest?v=20260629" />
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Separar Itens - TGA</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-dark: #222222;
+            --bg-light: #f7fafc;
+            --primary-blue: #00aced;
+            --text-dark: #1a202c;
+            --text-muted: #718096;
+            --text-light: #a0aec0;
+            --success-green: #38a169;
+            --warning-orange: #dd6b20;
+            --excess-purple: #805ad5;
+            --danger-red: #e53e3e;
+            --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            --radius: 12px;
+        }
+
+        * {
+            margin: 0; padding: 0; box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body { width: 100%; height: 100%; overflow: hidden; background-color: var(--bg-light); color: var(--text-dark); }
+        .app-container { width: 100%; height: 100%; display: flex; flex-direction: column; position: relative; }
+
+        /* --- HEADER --- */
+        .header {
+            background-color: var(--bg-dark); color: #fff; padding: 0 15px;
+            display: flex; align-items: center; height: 64px; flex-shrink: 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header-back-btn { background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer; padding: 10px; }
+        .header-info { flex: 1; text-align: center; margin-right: 40px; }
+        .header-title { font-size: 1.05rem; font-weight: 700; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .header-subtitle { font-size: 0.75rem; color: var(--primary-blue); font-weight: 600; }
+
+        /* --- ENTRADAS --- */
+        .bip-container {
+            background-color: #ffffff; padding: 12px 16px; border-bottom: 1px solid #edf2f7;
+            display: flex; gap: 8px; flex-shrink: 0; align-items: center;
+        }
+        .bip-input-wrapper { position: relative; flex: 1; }
+        .bip-input-wrapper i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-light); }
+        .input-bip {
+            width: 100%; height: 45px; background-color: #f7fafc; border: 2px solid #e2e8f0;
+            border-radius: 8px; padding: 0 12px 0 38px; font-size: 0.95rem; font-weight: 600; outline: none;
+        }
+        .input-bip:focus { border-color: var(--primary-blue); background-color: #ffffff; }
+        
+        .btn-action-icon {
+            height: 45px; width: 45px; background-color: #edf2f7; border: none;
+            border-radius: 8px; color: var(--text-dark); font-size: 1.2rem; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .btn-action-icon.active-camera { background-color: var(--primary-blue); color: white; }
+
+        #camera-preview { width: 100%; max-height: 200px; object-fit: cover; display: none; background: #000; flex-shrink: 0; }
+
+        /* --- LISTAGEM --- */
+        .itens-list { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 16px; -webkit-overflow-scrolling: touch; }
+        .fornecedor-grupo { display: flex; flex-direction: column; gap: 10px; }
+        .fornecedor-titulo {
+            font-size: 0.8rem; font-weight: 800; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;
+            background: #e2e8f0; padding: 6px 12px; border-radius: 6px;
+        }
+
+        /* --- CARD DE PRODUTO --- */
+        .item-card {
+            background-color: #ffffff; border-radius: var(--radius); padding: 14px;
+            display: flex; flex-direction: column; gap: 8px; box-shadow: var(--card-shadow);
+            border: 1px solid #eaf0f6; position: relative;
+        }
+        
+        .item-card.status-falta { border-left: 5px solid var(--warning-orange); }
+        .item-card.status-exato { border-left: 5px solid var(--success-green); }
+        .item-card.status-excesso { border-left: 5px solid var(--excess-purple); }
+        .item-card.status-zerado { border-left: 5px solid var(--danger-red); background-color: #fff5f5; }
+        .item-card.status-zerado .item-desc { text-decoration: line-through; color: var(--text-light); }
+
+        .item-main-info { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+        .item-detalhes { display: flex; flex-direction: column; gap: 3px; max-width: 70%; }
+        .item-desc { font-size: 0.95rem; font-weight: 700; color: var(--text-dark); line-height: 1.3; }
+        .item-submeta { font-size: 0.78rem; color: var(--text-muted); font-weight: 500; }
+        .item-localizacao {
+            align-self: flex-start; background-color: #edf2f7; color: var(--text-dark);
+            padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; margin-top: 2px;
+        }
+
+        .item-quantidade-box {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            border-radius: 8px; padding: 6px 12px; min-width: 80px; text-align: center; font-weight: 800;
+        }
+        .status-falta .item-quantidade-box { background-color: #fffaf0; border: 1px solid #fbd38d; color: var(--warning-orange); }
+        .status-exato .item-quantidade-box { background-color: #f0fff4; border: 1px solid #c6f6d5; color: var(--success-green); }
+        .status-excesso .item-quantidade-box { background-color: #faf5ff; border: 1px solid #e9d8fd; color: var(--excess-purple); }
+        .status-zerado .item-quantidade-box { background-color: #fff5f5; border: 1px solid #fed7d7; color: var(--danger-red); }
+
+        .qtd-conferida { font-size: 1.3rem; font-weight: 800; }
+        .qtd-pedida { font-size: 0.72rem; font-weight: 700; border-top: 1px dashed rgba(0,0,0,0.1); width: 100%; margin-top: 2px; padding-top: 2px; color: var(--text-muted); }
+
+        .item-actions-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f7fafc; padding-top: 6px; }
+        .btn-card-action { background: none; border: 1px solid #e2e8f0; color: var(--text-muted); padding: 5px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+        .btn-card-action.btn-corte-ativo { background-color: var(--danger-red); color: white; border-color: var(--danger-red); }
+
+        /* --- MODAL --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.5); z-index: 1000; display: none;
+            align-items: center; justify-content: center; padding: 20px;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-container {
+            background-color: #ffffff; border-radius: var(--radius); width: 100%; max-width: 340px;
+            padding: 20px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+            display: flex; flex-direction: column; gap: 14px;
+        }
+        
+        .modal-title { font-size: 1rem; font-weight: 700; text-align: center; color: var(--text-dark); }
+        .modal-subtitle { font-size: 0.82rem; color: var(--text-muted); text-align: center; margin-top: -8px; }
+        .input-modal-qtd {
+            width: 100%; height: 50px; text-align: center; font-size: 1.5rem; font-weight: 800;
+            border: 2px solid var(--primary-blue); border-radius: 8px; outline: none; background: #f7fafc;
+        }
+        .modal-buttons { display: flex; gap: 10px; }
+        .btn-modal { flex: 1; height: 45px; border: none; border-radius: 8px; font-weight: 700; font-size: 0.9rem; text-transform: uppercase; cursor: pointer; }
+        .btn-modal.cancelar { background-color: #edf2f7; color: var(--text-muted); }
+        .btn-modal.salvar { background-color: var(--primary-blue); color: white; }
+
+        /* --- FOOTER RESUMO --- */
+        .footer-resumo { background-color: #ffffff; border-top: 1px solid #edf2f7; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        .resumo-texto { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); }
+        .resumo-destaque { font-size: 1.1rem; font-weight: 800; color: var(--text-dark); }
+        .btn-finalizar { background-color: var(--success-green); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; text-transform: uppercase; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <header class="header">
+            <button class="header-back-btn" onclick="voltarParaPedidos()"><i class="fa-solid fa-chevron-left"></i></button>
+            <div class="header-info">
+                <div class="header-title" id="txtNomeLoja">Carregando...</div>
+                <div class="header-subtitle" id="txtNumPedido">Pedido #--</div>
+            </div>
+        </header>
+
+        <video id="camera-preview" autoplay playsinline></video>
+
+        <div class="bip-container">
+            <div class="bip-input-wrapper">
+                <i class="fa-solid fa-barcode"></i>
+                <input type="text" class="input-bip" id="inputCodigoBip" placeholder="Bipe o código..." autocomplete="off">
+            </div>
+            <button class="btn-action-icon" id="btnToggleCamera" onclick="controlarCameraNatal()" title="Escanear Código">
+                <i class="fa-solid fa-camera"></i>
+            </button>
+        </div>
+
+        <main class="itens-list" id="itensContainer"></main>
+
+        <footer class="footer-resumo">
+            <div>
+                <div class="resumo-texto">Total Separado</div>
+                <div class="resumo-destaque" id="txtTotalProgresso">0 / 0 un.</div>
+            </div>
+            <button class="btn-finalizar" onclick="voltarParaPedidos()">Salvar</button>
+        </footer>
+    </div>
+
+    <div class="modal-overlay" id="modalQtdOverlay" onclick="fecharModalQtd()">
+        <div class="modal-container" onclick="event.stopPropagation()">
+            <div class="modal-title" id="modalProdutoTitulo">Definir Quantidade</div>
+            <div class="modal-subtitle" id="modalProdutoMeta">Meta solicitada: 0 un.</div>
+            <input type="number" pattern="[0-9]*" inputmode="numeric" class="input-modal-qtd" id="modalInputQtd" min="0">
+            <div class="modal-buttons">
+                <button class="btn-modal cancelar" onclick="fecharModalQtd()">Cancelar</button>
+                <button class="btn-modal salvar" onclick="salvarQtdModal()">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="db.js"></script>
+    <script>
+        var listaPedidos = [];
+        var pedidoIdContexto = null; 
+        var pedidoAtual = null;
+        var itemEmEdicao = null;
+
+        var streamDeVideo = null;
+        var barcodeDetector = null;
+        var loopDeLeituraId = null;
+
+        // Variáveis de controle para dupla confirmação e fluxo iOS (ZXing)
+        var codeReaderZXing = null;
+        var ultimoCodigoDetectado = null;
+        var leiturasIdenticasContador = 0;
+        var barcodeScanningActive = false;
+
+        // Helper para detectar iPhone / iOS
+        function isIphone() {
+            return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        }
+
+        async function buscarPedidoNoIndexedDB(numeroPedido) {
+            const db = await abrirBanco();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(PEDIDO_NAME, "readonly");
+                const store = transaction.objectStore(PEDIDO_NAME);
+                const request = store.get(numeroPedido);
+
+                request.onsuccess = () => resolve(request.result || null);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function atualizarPedidoNoIndexedDB(pedido) {
+            const db = await abrirBanco();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(PEDIDO_NAME, "readwrite");
+                const store = transaction.objectStore(PEDIDO_NAME);
+                const request = store.put(pedido);
+
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+        // =================================================================
+
+        function initBarcodeDetector() {
+            if (isIphone()) {
+                if (typeof ZXing !== "undefined") {
+                    codeReaderZXing = new ZXing.BrowserMultiFormatReader();
+                }
+            } else if ('BarcodeDetector' in window) {
+                try {
+                    barcodeDetector = new BarcodeDetector({ formats: ['code_128', 'ean_13', 'ean_8', 'code_39', 'upc_a'] });
+                } catch (err) {
+                    console.warn("BarcodeDetector nativo indisponível.");
+                }
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', function() {
+            var params = new URLSearchParams(window.location.search);
+            pedidoIdContexto = params.get('id') || params.get('index');
+            
+            carregarPedidoDoContexto();
+
+            if (isIphone()) {
+                const script = document.createElement("script");
+                script.src = "https://unpkg.com/@zxing/library@latest";
+                script.onload = () => {
+                    initBarcodeDetector();
+                };
+                document.head.appendChild(script);
+            } else {
+                initBarcodeDetector();
+            }
+
+            var inputBip = document.getElementById('inputCodigoBip');
+            if (inputBip) {
+                inputBip.focus(); 
+
+                inputBip.addEventListener('keypress', function(e) { 
+                    if (e.key === 'Enter') processarBip(inputBip.value.trim()); 
+                });
+            }
+        });
+
+        async function carregarPedidoDoContexto() {
+            try {
+                if (!pedidoIdContexto) {
+                    document.getElementById('txtNomeLoja').innerText = "Erro: ID não informado";
+                    return;
+                }
+
+                pedidoAtual = await buscarPedidoNoIndexedDB(pedidoIdContexto);
+
+                if (!pedidoAtual) {
+                    const db = await abrirBanco();
+                    const todosPedidos = await new Promise((resolve) => {
+                        const tx = db.transaction(PEDIDO_NAME, "readonly");
+                        const req = tx.objectStore(PEDIDO_NAME).getAll();
+                        req.onsuccess = () => resolve(req.result || []);
+                    });
+                    pedidoAtual = todosPedidos[parseInt(pedidoIdContexto, 10)];
+                }
+                
+                if (!pedidoAtual) {
+                    document.getElementById('txtNomeLoja').innerText = "Pedido não encontrado";
+                    return;
+                }
+
+                document.getElementById('txtNomeLoja').innerText = pedidoAtual.cliente || "Cliente";
+                document.getElementById('txtNumPedido').innerText = "Pedido #" + (pedidoAtual.numero || '--') + " • " + (pedidoAtual.data || '');
+                renderItensAgrupados();
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById('txtNomeLoja').innerText = "Erro ao carregar";
+            }
+        }
+
+        async function renderItensAgrupados() {
+            if (!pedidoAtual || !pedidoAtual.itens) return;
+
+            var container = document.getElementById('itensContainer');
+            container.innerHTML = '';
+
+            var grupos = {};
+            var totalPedida = 0;
+            var totalColetada = 0;
+
+            pedidoAtual.itens.forEach(function(item) {
+                totalPedida += parseInt(item.quantidadePedida || 0, 10);
+                totalColetada += parseInt(item.quantidadeColetada || 0, 10);
+
+                var fornecedor = (item.descricaoFornecedor || "SEM FORNECEDOR").trim();
+                if (!grupos[fornecedor]) grupos[fornecedor] = [];
+                grupos[fornecedor].push(item);
+            });
+
+            for (var fornecedor in grupos) {
+                var groupDiv = document.createElement('div');
+                groupDiv.className = 'fornecedor-grupo';
+                groupDiv.innerHTML = '<div class="fornecedor-titulo"><i class="fa-solid fa-truck"></i> ' + fornecedor + '</div>';
+
+                grupos[fornecedor].forEach(function(item) {
+                    var classeDivergencia = 'status-falta';
+                    
+                    if (item.isZeradoMarcado) {
+                        classeDivergencia = 'status-zerado';
+                    } else if (item.quantidadeColetada === item.quantidadePedida) {
+                        classeDivergencia = 'status-exato';
+                    } else if (item.quantidadeColetada > item.quantidadePedida) {
+                        classeDivergencia = 'status-excesso';
+                    }
+
+                    var card = document.createElement('div');
+                    card.className = 'item-card ' + classeDivergencia;
+
+                    card.innerHTML = `
+                        <div class="item-main-info">
+                            <div class="item-detalhes">
+                                <div class="item-desc">${item.descricao || 'Sem descrição'}</div>
+                                <div class="item-submeta">Ref: <b>${item.referencia || '--'}</b> • Cód: ${item.codigo || '--'}</div>
+                                ${item.localizacao ? `<div class="item-localizacao"><i class="fa-solid fa-location-dot"></i> ${item.localizacao}</div>` : ''}
+                            </div>
+                            <div class="item-quantidade-box">
+                                <div class="qtd-conferida">
+                                    ${item.quantidadeColetada || 0}
+                                    ${classeDivergencia === 'status-excesso' ? '<i class="fa-solid fa-triangle-exclamation" style="font-size:0.8rem; margin-left:2px;"></i>' : ''}
+                                </div>
+                                <div class="qtd-pedida">Meta: ${item.quantidadePedida || 0}</div>
+                            </div>
+                        </div>
+                        <div class="item-actions-footer">
+                            <span class="item-submeta">Estoque: ${item.qtdEstoque || 0} un.</span>
+                            <div style="display:flex; gap:6px;">
+                                <button class="btn-card-action ${item.isZeradoMarcado ? 'btn-corte-ativo' : ''}" onclick="toggleCorteZerado('${item.codigo}')">Zerado / Corte</button>
+                                <button class="btn-card-action" onclick="abrirModalQtd('${item.codigo}')">Ajustar</button>
+                            </div>
+                        </div>
+                    `;
+                    groupDiv.appendChild(card);
+                });
+
+                container.appendChild(groupDiv);
+            }
+
+            document.getElementById('txtTotalProgresso').innerText = totalColetada + " / " + totalPedida + " un.";
+            pedidoAtual.itensSeparados = totalColetada;
+            
+            if (pedidoAtual.itensSeparados === 0) {
+                pedidoAtual.status = "pendente";
+            } else if (pedidoAtual.itensSeparados >= totalPedida) {
+                pedidoAtual.status = "concluido";
+            } else {
+                pedidoAtual.status = "separando";
+            }
+
+            try {
+                await atualizarPedidoNoIndexedDB(pedidoAtual);
+            } catch (e) {
+                console.error("Erro ao salvar progresso no IndexedDB:", e);
+            }
+        }
+
+        function processarBip(codigoBipeado) {
+            if (!codigoBipeado || !pedidoAtual) return;
+            document.getElementById('inputCodigoBip').value = '';
+
+            var item = pedidoAtual.itens.find(function(i) {
+                return i.codigo === codigoBipeado || i.codigoSecundario === codigoBipeado;
+            });
+
+            if (item) {
+                abrirModalQtd(item.codigo);
+            } else {
+                alert("Código [ " + codigoBipeado + " ] não localizado no pedido.");
+            }
+        }
+
+        function toggleCorteZerado(codigoItem) {
+            var item = pedidoAtual.itens.find(function(i) { return i.codigo === codigoItem; });
+            if (item) {
+                item.isZeradoMarcado = !item.isZeradoMarcado; 
+                if (item.isZeradoMarcado) {
+                    item.quantidadeColetada = 0;
+                }
+                renderItensAgrupados();
+            }
+        }
+
+        function abrirModalQtd(codigoItem) {
+            itemEmEdicao = pedidoAtual.itens.find(function(i) { return i.codigo === codigoItem; });
+            if (!itemEmEdicao) return;
+
+            document.getElementById('modalProdutoTitulo').innerText = itemEmEdicao.descricao || 'Produto';
+            document.getElementById('modalProdutoMeta').innerText = "Meta solicitada: " + (itemEmEdicao.quantidadePedida || 0) + " un.";
+            
+            var inputQtd = document.getElementById('modalInputQtd');
+            
+            var qtdAtual = itemEmEdicao.quantidadeColetada;
+            inputQtd.value = (qtdAtual === 0 || qtdAtual === undefined || qtdAtual === null) ? '' : qtdAtual;
+            
+            document.getElementById('modalQtdOverlay').classList.add('active');
+            
+            inputQtd.focus();
+            if (inputQtd.value !== '') {
+                inputQtd.select();
+            }
+        }
+
+        function fecharModalQtd() {
+            document.getElementById('modalQtdOverlay').classList.remove('active');
+            itemEmEdicao = null;
+            
+            var inputBip = document.getElementById('inputCodigoBip');
+            if (inputBip) {
+                inputBip.focus();
+            }
+        }
+
+        function salvarQtdModal() {
+            if (!itemEmEdicao) return;
+            var valorInput = document.getElementById('modalInputQtd').value;
+            var novaQtd = valorInput === '' ? 0 : parseInt(valorInput, 10);
+
+            if (!isNaN(novaQtd) && novaQtd >= 0) {
+                itemEmEdicao.quantidadeColetada = novaQtd;
+                if (novaQtd > 0) itemEmEdicao.isZeradoMarcado = false;
+                renderItensAgrupados();
+                fecharModalQtd();
+            }
+        }
+
+        async function controlarCameraNatal() {
+            var video = document.getElementById('camera-preview');
+            var btn = document.getElementById('btnToggleCamera');
+
+            ultimoCodigoDetectado = null;
+            leiturasIdenticasContador = 0;
+
+            if (isIphone()) {
+                if (!codeReaderZXing) {
+                    alert("O leitor ZXing não está carregado ou ativo neste aparelho.");
+                    return;
+                }
+
+                if (barcodeScanningActive) {
+                    fecharCameraNatal();
+                    return;
+                }
+
+                if (video) {
+                    video.style.filter = "contrast(150%) brightness(90%) saturate(0%)";
+                    video.style.objectFit = "cover";
+                }
+
+                video.style.display = 'block';
+                btn.classList.add('active-camera');
+                barcodeScanningActive = true;
+
+                const constraints = {
+                    video: {
+                        width: { min: 640, ideal: 1280 },
+                        height: { min: 480, ideal: 720 },
+                        facingMode: "environment",
+                        advanced: [{ focusMode: "continuous" }]
+                    }
+                };
+
+                codeReaderZXing.decodeFromConstraints(constraints, 'camera-preview', (result, err) => {
+                    if (!barcodeScanningActive) return;
+
+                    if (result) {
+                        const codigoDetectado = result.text;
+
+                        if (codigoDetectado === ultimoCodigoDetectado) {
+                            leiturasIdenticasContador++;
+                        } else {
+                            ultimoCodigoDetectado = codigoDetectado;
+                            leiturasIdenticasContador = 0;
+                        }
+
+                        if (leiturasIdenticasContador >= 1) { 
+                            fecharCameraNatal();
+                            processarBip(codigoDetectado);
+                        }
+                    }
+
+                    if (err && !(err instanceof ZXing.NotFoundException)) {
+                        console.error(err);
+                    }
+                }).catch((err) => {
+                    console.error("Erro ao abrir a câmera no ZXing:", err);
+                    alert("Erro ao acessar a câmera no iPhone.");
+                    fecharCameraNatal();
+                });
+
+                return;
+            }
+
+            if (!barcodeDetector) {
+                alert("O leitor nativo via Chrome Android não está disponível ou ativo neste aparelho.");
+                return;
+            }
+
+            if (streamDeVideo) {
+                fecharCameraNatal();
+                return;
+            }
+
+            try {
+                streamDeVideo = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment", focusMode: "continuous" }
+                });
+                video.srcObject = streamDeVideo;
+                video.style.display = 'block';
+                btn.classList.add('active-camera');
+                barcodeScanningActive = true;
+                
+                loopDeLeituraId = requestAnimationFrame(escanearFrameNativo);
+            } catch (err) {
+                alert("Erro ao acessar a câmera.");
+                fecharCameraNatal();
+            }
+        }
+
+        async function escanearFrameNativo() {
+            var video = document.getElementById('camera-preview');
+            
+            if (!barcodeScanningActive || isIphone()) return;
+            if (!streamDeVideo || video.readyState !== video.HAVE_ENOUGH_DATA) {
+                loopDeLeituraId = requestAnimationFrame(escanearFrameNativo);
+                return;
+            }
+
+            try {
+                var barcodes = await barcodeDetector.detect(video);
+                if (barcodes.length > 0) {
+                    var codigoDetectado = barcodes[0].rawValue;
+
+                    if (codigoDetectado === ultimoCodigoDetectado) {
+                        leiturasIdenticasContador++;
+                    } else {
+                        ultimoCodigoDetectado = codigoDetectado;
+                        leiturasIdenticasContador = 0;
+                    }
+
+                    if (leiturasIdenticasContador >= 1) {
+                        fecharCameraNatal();
+                        processarBip(codigoDetectado);
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            }
+
+            loopDeLeituraId = requestAnimationFrame(escanearFrameNativo);
+        }
+
+        function fecharCameraNatal() {
+            var video = document.getElementById('camera-preview');
+            var btn = document.getElementById('btnToggleCamera');
+            
+            barcodeScanningActive = false;
+            if (loopDeLeituraId) cancelAnimationFrame(loopDeLeituraId);
+            
+            if (isIphone() && codeReaderZXing) {
+                codeReaderZXing.reset();
+            } else if (streamDeVideo) {
+                streamDeVideo.getTracks().forEach(function(track) { track.stop(); });
+                streamDeVideo = null;
+            }
+
+            video.style.display = 'none';
+            video.srcObject = null;
+            btn.classList.remove('active-camera');
+        }
+
+        function voltarParaPedidos() {
+            fecharCameraNatal();
+            window.location.href = 'pedidos.html';
+        }
+    </script>
+</body>
+</html>
