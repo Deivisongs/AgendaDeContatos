@@ -223,21 +223,34 @@ async function compartilharItem(formato) {
   const nomeLoja = item.loja || item.name || "avaria";
   const nomeArquivoSanitizado = nomeLoja.toLowerCase().replace(/[^a-z0-9]/g, "_");
 
-  // --- MODO TEXTO / JSON ---
+  // --- MODO JSON (COMO ARQUIVO ANEXO) ---
   if (formato === "json") {
-    const stringJson = JSON.stringify(item, null, 2);
-    let textoEnvio = `*Relatório de Avaria - ${nomeLoja}*\n`;
-    textoEnvio += `Operador: ${item.operador || "Não informado"}\n`;
-    textoEnvio += `Status: ${item.status || "aberto"}\n\n`;
-    textoEnvio += `Dados Técnicos (JSON):\n\`\`\`json\n${stringJson}\n\`\`\``;
+    fecharModalShare();
 
-    if (navigator.share) {
+    const stringJson = JSON.stringify(item, null, 2);
+    
+    // 1. Cria o Blob com o conteúdo do JSON
+    const blobJson = new Blob([stringJson], { type: "application/json;charset=utf-8" });
+    
+    // 2. Converte o Blob em um Arquivo físico virtual aceito pelo sistema operacional
+    const nomeArquivo = `avaria_${nomeArquivoSanitizado}.json`;
+    const arquivoJson = new File([blobJson], nomeArquivo, { type: "application/json" });
+
+    // 3. Verifica se o navegador/celular suporta o compartilhamento deste arquivo
+    if (navigator.canShare && navigator.canShare({ files: [arquivoJson] })) {
       try {
-        await navigator.share({ title: `JSON - ${nomeLoja}`, text: textoEnvio });
-      } catch (err) { console.log("Compartilhamento cancelado:", err); }
+        await navigator.share({
+          files: [arquivoJson],
+          title: `JSON - Avaria ${nomeLoja}`,
+          text: `Segue em anexo o arquivo de dados da avaria de ${nomeLoja}.`
+        });
+      } catch (err) {
+        console.log("Compartilhamento de JSON cancelado:", err);
+      }
     } else {
+      // Fallback automático caso esteja testando em um computador ou navegador antigo
       await navigator.clipboard.writeText(stringJson);
-      alert("JSON copiado para a Área de Transferência!");
+      alert("Seu navegador não suporta envio de arquivos de texto via menu. O JSON foi copiado para a Área de Transferência!");
     }
   } 
   
@@ -245,7 +258,6 @@ async function compartilharItem(formato) {
   else if (formato === "pdf") {
     fecharModalShare();
 
-    // Acessa a biblioteca jsPDF globalmente
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
@@ -260,11 +272,9 @@ async function compartilharItem(formato) {
     doc.text(`Operador: ${item.operador || "Não informado"}`, 14, 36);
     doc.text(`Status: ${item.status ? item.status.toUpperCase() : "ABERTO"}`, 14, 42);
 
-    // Linha divisória
     doc.setDrawColor(150);
     doc.line(14, 48, 196, 48);
 
-    // Cabeçalho da Tabela no PDF
     doc.setFont("helvetica", "bold");
     doc.text("Código", 14, 55);
     doc.text("Descrição do Item", 50, 55);
@@ -274,20 +284,16 @@ async function compartilharItem(formato) {
     doc.line(14, 58, 196, 58);
     doc.setFont("helvetica", "normal");
 
-    // Preenchimento dos itens buscando as descrições do produtos.csv
-    let y = 66; // Posição vertical inicial dos itens
+    let y = 66;
     const itens = item.itens || [];
 
     itens.forEach((i) => {
-      // Evita estourar o limite da página (adiciona nova página se necessário)
       if (y > 275) {
         doc.addPage();
         y = 20;
       }
 
       const descricaoReal = obterDescricaoDoProduto(i);
-
-      // Trunca descrições muito longas para caber no espaço do PDF
       const descTruncada = descricaoReal.length > 40 ? descricaoReal.substring(0, 38) + "..." : descricaoReal;
 
       doc.text(String(i.codigo), 14, y);
@@ -295,17 +301,13 @@ async function compartilharItem(formato) {
       doc.text(String(i.quantidade), 155, y, { align: "center" });
       doc.text(String(i.localizacao || "-"), 175, y);
 
-      y += 8; // Espaçamento para a próxima linha
+      y += 8;
     });
 
-    // Converte o PDF gerado em um Blob binário
     const pdfOutput = doc.output("blob");
-    
-    // Cria um arquivo físico virtual (.pdf) nomeado para o sistema operacional
-    const nomeArquivo = `relatorio_${nomeArquivoSanitizado}.pdf`;
-    const arquivoPdf = new File([pdfOutput], nomeArquivo, { type: "application/pdf" });
+    const nomeArquivoPdf = `relatorio_${nomeArquivoSanitizado}.pdf`;
+    const arquivoPdf = new File([pdfOutput], nomeArquivoPdf, { type: "application/pdf" });
 
-    // Verifica se o celular aceita compartilhar arquivos via código
     if (navigator.canShare && navigator.canShare({ files: [arquivoPdf] })) {
       try {
         await navigator.share({
@@ -317,8 +319,7 @@ async function compartilharItem(formato) {
         console.log("Compartilhamento de PDF cancelado:", err);
       }
     } else {
-      // Se rodar em um navegador desktop antigo que não aceita partilha de arquivos, ele baixa o PDF
-      doc.save(nomeArquivo);
+      doc.save(nomeArquivoPdf);
     }
   }
 }
