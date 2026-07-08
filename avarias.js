@@ -233,7 +233,7 @@ function initActionTriggers() {
     } catch (err) {
       console.error("Erro ao salvar ao encerrar:", err);
     } finally {
-      window.location.href = "index.html";
+      window.location.href = "minhasAvarias.html";
     }
   });
 
@@ -249,7 +249,7 @@ function initActionTriggers() {
       } catch (err) {
         console.error("Erro ao salvar ao voltar:", err);
       } finally {
-        window.location.href = "index.html";
+        window.location.href = "minhasAvarias.html";
       }
     });
 }
