@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <link rel="icon" type="image/png" href="/favicon-96x96.png?v=20260629" sizes="96x96" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260629" />
+  <link rel="shortcut icon" href="/favicon.ico?v=20260629" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260629" />
+  <meta name="apple-mobile-web-app-title" content="FastColetor" />
+  <link rel="manifest" href="/site.webmanifest?v=20260629" />
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>tgd - Consultor de Preços</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: #f8f9fa;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Cabeçalho Escuro com Curvatura idêntico ao da imagem */
+    header {
+      background-color: #2a2a2a;
+      color: #fff;
+      padding: 20px 20px 40px 20px;
+      text-align: center;
+      position: relative;
+      border-bottom-left-radius: 50% 20px;
+      border-bottom-right-radius: 50% 20px;
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      max-width: 500px;
+      margin: 0 auto 10px auto;
+      font-size: 1.2rem;
+    }
+
+    .header-top i {
+      cursor: pointer;
+      opacity: 0.9;
+    }
+
+    .logo-area h1 {
+      color: #00a8e8;
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -1px;
+    }
+
+    .logo-area p {
+      font-size: 0.9rem;
+      color: #ccc;
+      margin-top: -2px;
+    }
+
+    /* Conteúdo Principal */
+    main {
+      flex: 1;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-y: auto;
+      padding-bottom: 100px; /* Espaço para a barra inferior */
+    }
+
+    .container {
+      width: 100%;
+      max-width: 450px;
+    }
+
+    /* Card de Resultado */
+    .card-produto {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      width: 100%;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    .card-produto.active {
+      display: block;
+    }
+
+    .prod-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #2a2a2a;
+      margin-bottom: 15px;
+      line-height: 1.3;
+    }
+
+    .info-group {
+      border-top: 1px solid #eee;
+      padding: 10px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .info-label {
+      font-size: 0.85rem;
+      color: #777;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .info-value {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #333;
+    }
+
+    .info-value.price {
+      color: #00a8e8;
+      font-size: 1.3rem;
+    }
+
+    /* Estado Inicial / Vazio */
+    .estado-vazio {
+      text-align: center;
+      padding: 40px 20px;
+      color: #777;
+    }
+
+    .estado-vazio i {
+      font-size: 3rem;
+      color: #00a8e8;
+      margin-bottom: 15px;
+      opacity: 0.7;
+    }
+
+    /* Botões de Ação */
+    .btn-acao {
+      background-color: #00a8e8;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 20px;
+      font-size: 1rem;
+      font-weight: 600;
+      width: 100%;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      margin-top: 10px;
+      box-shadow: 0 4px 6px rgba(0, 168, 232, 0.2);
+    }
+    .btn-acao i{
+      margin: 0;
+    }
+
+    /* Modais Customizados */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      padding: 20px;
+    }
+
+    .modal.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-content {
+      background: #fff;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 400px;
+      overflow: hidden;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    }
+
+    .modal-header-bar {
+      padding: 15px 20px;
+      color: white;
+      font-weight: 700;
+      font-size: 1.1rem;
+      background: #2a2a2a;
+    }
+
+    .modal-body {
+      padding: 20px;
+    }
+
+    .modal-body input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+
+    .modal-footer {
+      display: flex;
+      gap: 10px;
+      padding: 0 20px 20px 20px;
+    }
+
+    .btn-modal {
+      flex: 1;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-modal.confirm { background: #00a8e8; color: white; }
+    .btn-modal.cancel { background: #eee; color: #333; }
+
+    /* Scanner de Vídeo */
+    #videoContainer {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      z-index: 1000;
+    }
+
+    #videoPreview {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    /* FILTRO ULTRA-CONSTRATE: Só entra em ação no iOS via classe injetada dinamicamente */
+    #videoPreview.mode-zxing {
+      filter: contrast(150%) brightness(90%) saturate(0%);
+    }
+
+    .scanner-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      box-shadow: inset 0 0 100px rgba(0,0,0,0.6);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      padding: 30px;
+    }
+
+    /* Máscaras superiores e inferiores para o modo ZXing (Cortina) */
+    .scanner-overlay-top, .scanner-overlay-bottom {
+      display: none;
+      position: absolute;
+      left: 0;
+      width: 100%;
+      height: 35%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 5;
+      pointer-events: none;
+    }
+    .scanner-overlay-top { top: 0; border-bottom: 1px dashed rgba(255,255,255,0.4); }
+    .scanner-overlay-bottom { bottom: 0; border-top: 1px dashed rgba(255,255,255,0.4); }
+
+    /* Força exibição da cortina de corte visual apenas no modo ZXing */
+    #videoContainer.zxing-active .scanner-overlay-top,
+    #videoContainer.zxing-active .scanner-overlay-bottom {
+      display: block;
+    }
+
+    .scanner-target {
+      width: 70%;
+      height: 200px;
+      border: 2px solid #00a8e8;
+      border-radius: 12px;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 6;
+    }
+
+    /* Linha vermelha central dinâmica de mira para o iOS */
+    .scanner-laser-zxing {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 5%;
+      width: 90%;
+      height: 3px;
+      background-color: #ff0000;
+      box-shadow: 0 0 10px #ff0000;
+      z-index: 10;
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+    #videoContainer.zxing-active .scanner-laser-zxing {
+      display: block;
+    }
+
+    #btnCloseScanner {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      border: none;
+      padding: 12px 25px;
+      border-radius: 30px;
+      font-size: 1rem;
+      cursor: pointer;
+      backdrop-filter: blur(5px);
+      z-index: 1001;
+      position: absolute;
+      bottom: 30px;
+    }
+
+    /* Barra de Navegação Inferior (Centralização Corrigida) */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background-color: #ffffff;
+      border-top: 1px solid #e0e0e0;
+      height: 70px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 900;
+    }
+
+    .nav-item {
+      flex: 1; /* Distribui o mesmo espaço exato para a esquerda e direita */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: #333;
+      text-decoration: none;
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .nav-item i {
+      font-size: 1.3rem;
+      margin-bottom: 4px;
+    }
+
+    /* Botão Central da Câmera Flutuante */
+    .nav-scan-center {
+      position: relative;
+      top: -15px;
+      background: #2a2a2a;
+      width: 65px;
+      height: 65px;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      flex-shrink: 0; /* Garante que as abas laterais não alterem o diâmetro do círculo */
+    }
+
+    .nav-scan-center .btn-circle {
+      background: #2a2a2a;
+      border: none;
+      color: #00a8e8;
+      font-size: 1.6rem;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-top">
+      <i class="fa-solid fa-arrow-left" onclick="window.location.href='index.html'"></i>
+      <i class="fa-solid fa-right-from-bracket"></i>
+    </div>
+    <div class="logo-area">
+      <h1>tgd</h1>
+      <p>coletor de dados</p>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      
+      <div id="estadoVazio" class="estado-vazio">
+        <i class="fa-solid fa-barcode"></i>
+        <h3>Consulta de Produtos</h3>
+        <p style="color: #999; margin-top: 5px;">Bipe ou digite um código de barras para buscar as informações.</p>
+        <button class="btn-acao" id="btnManualInput" style="margin-top: 25px; background-color: #2a2a2a; box-shadow: none;">
+          <i class="fa-solid fa-keyboard"></i> Digitação Manual
+        </button>
+      </div>
+
+      <div id="cardProduto" class="card-produto">
+        <div class="prod-title" id="lblDescricao">Nome do Produto</div>
+        
+        <div class="info-group">
+          <span class="info-label">Código</span>
+          <span class="info-value" id="lblCodigo">-</span>
+        </div>
+        
+        <div class="info-group">
+          <span class="info-label">Estoque Atual</span>
+          <span class="info-value" id="lblEstoque">-</span>
+        </div>
+        
+        <div class="info-group" style="border-bottom: 1px solid #eee; margin-bottom: 20px;">
+          <span class="info-label">Preço</span>
+          <span class="info-value price" id="lblPreco">R$ 0,00</span>
+        </div>
+
+        <button class="btn-acao" id="btnProximo">
+          <i class="fa-solid fa-camera"></i> Próxima Leitura
+        </button>
+      </div>
+
+    </div>
+  </main>
+
+  <div id="videoContainer">
+    <video id="videoPreview" autoplay playsinline muted></video>
+    <div class="scanner-overlay">
+      <div class="scanner-overlay-top"></div>
+      <div class="scanner-target"></div>
+      <div class="scanner-laser-zxing"></div>
+      <div class="scanner-overlay-bottom"></div>
+      <button id="btnCloseScanner">Cancelar</button>
+    </div>
+  </div>
+
+  <div id="modalInputManual" class="modal">
+    <div class="modal-content">
+      <div class="modal-header-bar">Consultar Código</div>
+      <div class="modal-body">
+        <input type="text" id="txtManualCode" placeholder="Digite ou cole o código" inputmode="numeric">
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal cancel" id="btnCancelManualCode">Cancelar</button>
+        <button class="btn-modal confirm" id="btnConfirmManualCode">Buscar</button>
+      </div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <div class="nav-item" onclick="window.location.href='index.html'">
+      <i class="fa-solid fa-bars"></i>
+      <span>menu</span>
+    </div>
+    
+    <div class="nav-scan-center">
+      <button class="btn-circle" id="btnScan" title="Escanear Código">
+        <i class="fa-solid fa-camera"></i>
+      </button>
+    </div>
+    
+    <div class="nav-item" onclick="window.location.href='meuBalanco.html'">
+      <i class="fa-solid fa-file-invoice"></i>
+      <span>meu balanço</span>
+    </div>
+  </nav>
+
+  <script src="db.js"></script>
+  <script>
+    let produtosDatabase = {};
+    let streamVideo = null;
+    let barcodeDetectorInstance = null;
+    let barcodeScanningActive = false;
+
+    // Variáveis globais para controle de dupla confirmação (Compartilhada por ambos os motores)
+    let zxingReaderInstance = null;
+    let ultimoCodigo = null;
+    let leiturasIdenticas = 0;
+
+    window.addEventListener("DOMContentLoaded", () => {
+      autoLoadCSV();
+      initBarcodeDetector();
+      initControls();
+    });
+
+    function autoLoadCSV() {
+      fetch("produtos.csv")
+        .then((response) => {
+          if (!response.ok) throw new Error();
+          return response.text();
+        })
+        .then((text) => processCSVData(text))
+        .catch(() => console.warn("produtos.csv ausente na pasta do projeto."));
+    }
+
+    function processCSVData(csvText) {
+      produtosDatabase = {};
+      const lines = csvText.split(/\r?\n/);
+      lines.forEach((line) => {
+        if (!line.trim()) return;
+        const parts = line.split(";");
+        if (parts.length >= 2) {
+          const codigo = parts[0].trim();
+          produtosDatabase[codigo] = {
+            descricao: parts[1] ? parts[1].trim() : "Sem Descrição",
+            preco: parts[2] ? parts[2].trim() : "0,00",
+            estoque: parts[3] ? parts[3].trim() : "0", 
+          };
+        }
+      });
+    }
+
+    function initBarcodeDetector() {
+      if ("BarcodeDetector" in window) {
+        barcodeDetectorInstance = new BarcodeDetector({
+          formats: ["ean_13", "code_128", "qr_code", "upc_a"],
+        });
+      } else {
+        const script = document.createElement('script');
+        script.src = "https://unpkg.com/@zxing/library@latest";
+        script.onload = () => {
+          zxingReaderInstance = new ZXing.BrowserMultiFormatReader();
+          console.log("ZXing Carregado como Fallback para iOS.");
+        };
+        document.head.appendChild(script);
+      }
+    }
+
+    function abrirModalManual() {
+      const txtManualCode = document.getElementById("txtManualCode");
+      if (txtManualCode) txtManualCode.value = "";
+      
+      const modalInputManual = document.getElementById("modalInputManual");
+      if (modalInputManual) {
+        modalInputManual.classList.add("active");
+        setTimeout(() => txtManualCode.focus(), 300);
+      }
+    }
+
+    function buscarProduto(code) {
+      if (!code || code.trim() === "") return;
+      
+      const cleanCode = code.trim();
+      const item = produtosDatabase[cleanCode];
+
+      const estadoVazio = document.getElementById("estadoVazio");
+      if (estadoVazio) estadoVazio.style.display = "none";
+      
+      const card = document.getElementById("cardProduto");
+      if (card) card.classList.add("active");
+
+      if (item) {
+        if (document.getElementById("lblDescricao")) document.getElementById("lblDescricao").innerText = item.descricao;
+        if (document.getElementById("lblCodigo")) document.getElementById("lblCodigo").innerText = cleanCode;
+        if (document.getElementById("lblEstoque")) document.getElementById("lblEstoque").innerText = item.estoque;
+        if (document.getElementById("lblPreco")) document.getElementById("lblPreco").innerText = `R$ ${item.preco}`;
+      } else {
+        if (document.getElementById("lblDescricao")) document.getElementById("lblDescricao").innerText = "Produto não cadastrado";
+        if (document.getElementById("lblCodigo")) document.getElementById("lblCodigo").innerText = cleanCode;
+        if (document.getElementById("lblEstoque")) document.getElementById("lblEstoque").innerText = "-";
+        if (document.getElementById("lblPreco")) document.getElementById("lblPreco").innerText = "R$ -,--";
+      }
+    }
+
+    function initControls() {
+      const btnManualInput = document.getElementById("btnManualInput");
+      if (btnManualInput) {
+        btnManualInput.addEventListener("click", abrirModalManual);
+      }
+
+      const btnCancelManualCode = document.getElementById("btnCancelManualCode");
+      if (btnCancelManualCode) {
+        btnCancelManualCode.addEventListener("click", () => {
+          const modalInputManual = document.getElementById("modalInputManual");
+          if (modalInputManual) modalInputManual.classList.remove("active");
+        });
+      }
+
+      const btnConfirmManualCode = document.getElementById("btnConfirmManualCode");
+      if (btnConfirmManualCode) {
+        btnConfirmManualCode.addEventListener("click", () => {
+          const txtManualCode = document.getElementById("txtManualCode");
+          if (txtManualCode) {
+            const code = txtManualCode.value;
+            if (code && code.trim() !== "") {
+              const modalInputManual = document.getElementById("modalInputManual");
+              if (modalInputManual) modalInputManual.classList.remove("active");
+              buscarProduto(code);
+            }
+          }
+        });
+      }
+
+      const btnProximo = document.getElementById("btnProximo");
+      if (btnProximo) {
+        btnProximo.addEventListener("click", () => {
+          const btnScan = document.getElementById("btnScan");
+          if (btnScan) btnScan.click();
+        });
+      }
+
+      const btnScan = document.getElementById("btnScan");
+      if (btnScan) {
+        btnScan.addEventListener("click", async () => {
+          const videoPreview = document.getElementById("videoPreview");
+          const videoContainer = document.getElementById("videoContainer");
+
+          // Reset de variáveis antes de começar um novo escaneamento
+          ultimoCodigo = null;
+          leiturasIdenticas = 0;
+
+          // FLUXO PRINCIPAL: Se suportar a API nativa do Google (Android)
+          if (barcodeDetectorInstance) {
+            try {
+              streamVideo = await navigator.mediaDevices.getUserMedia({
+                video: { 
+                  facingMode: "environment",
+                  width: { min: 640, ideal: 1280 },
+                  height: { min: 480, ideal: 720 }
+                },
+              });
+              
+              if (videoPreview && videoContainer) {
+                videoPreview.classList.remove("mode-zxing");
+                videoContainer.classList.remove("zxing-active");
+                videoPreview.srcObject = streamVideo;
+                videoContainer.style.display = "block";
+                barcodeScanningActive = true;
+                requestAnimationFrame(scanLoop);
+              }
+            } catch (err) {
+              alert("Acesso à câmera indisponível ou negado.");
+            }
+          } 
+          // FLUXO FALLBACK: Se for iPhone (Usa o ZXing)
+          else if (zxingReaderInstance) {
+            if (videoPreview && videoContainer) {
+              videoPreview.classList.add("mode-zxing");
+              videoContainer.classList.add("zxing-active");
+              videoContainer.style.display = "block";
+
+              const constraints = {
+                video: {
+                  width: { min: 640, ideal: 1280 },
+                  height: { min: 480, ideal: 720 },
+                  facingMode: "environment",
+                  advanced: [{ focusMode: "continuous" }]
+                }
+              };
+
+              zxingReaderInstance.decodeFromConstraints(constraints, 'videoPreview', (result, err) => {
+                if (result) {
+                  const codigoDetectado = result.text;
+
+                  if (codigoDetectado === ultimoCodigo) {
+                    leiturasIdenticas = leiturasIdenticas + 1;
+                  } else {
+                    ultimoCodigo = codigoDetectado;
+                    leiturasIdenticas = 0;
+                  }
+
+                  if (leiturasIdenticas >= 1) {
+                    stopScanner();
+                    buscarProduto(codigoDetectado);
+                  }
+                }
+                if (err && !(err instanceof ZXing.NotFoundException)) {
+                  console.error(err);
+                }
+              }).catch((e) => {
+                alert("Erro ao abrir câmera no iOS.");
+                stopScanner();
+              });
+            }
+          } else {
+            abrirModalManual();
+          }
+        });
+      }
+
+      const btnCloseScanner = document.getElementById("btnCloseScanner");
+      if (btnCloseScanner) {
+        btnCloseScanner.addEventListener("click", stopScanner);
+      }
+    }
+
+    async function scanLoop() {
+      if (!barcodeScanningActive) return;
+      const videoEl = document.getElementById("videoPreview");
+      if (videoEl && videoEl.readyState === videoEl.HAVE_ENOUGH_DATA) {
+        try {
+          const barcodes = await barcodeDetectorInstance.detect(videoEl);
+          if (barcodes.length > 0) {
+            const codigoDetectado = barcodes[0].rawValue;
+
+            // ADICIONADO: Dupla confirmação para o motor nativo (Android)
+            if (codigoDetectado === ultimoCodigo) {
+              leiturasIdenticas = leiturasIdenticas + 1;
+            } else {
+              ultimoCodigo = codigoDetectado;
+              leiturasIdenticas = 0;
+            }
+
+            if (leiturasIdenticas >= 1) {
+              stopScanner();
+              buscarProduto(codigoDetectado);
+              return;
+            }
+          }
+        } catch (e) {}
+      }
+      requestAnimationFrame(scanLoop);
+    }
+
+    function stopScanner() {
+      barcodeScanningActive = false;
+      if (zxingReaderInstance) {
+        zxingReaderInstance.reset();
+      }
+      const videoContainer = document.getElementById("videoContainer");
+      if (videoContainer) videoContainer.style.display = "none";
+      if (streamVideo) {
+        streamVideo.getTracks().forEach((track) => track.stop());
+        streamVideo = null;
+      }
+    }
+  </script>
+</body>
+</html>
