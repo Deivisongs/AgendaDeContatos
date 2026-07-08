@@ -221,36 +221,39 @@ function fecharModalShare() {
 async function compartilharItem(formato) {
   const item = listaAvarias[indexSelecionadoContexto];
   const nomeLoja = item.loja || item.name || "avaria";
-  const nomeArquivoSanitizado = nomeLoja
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "_");
+  const nomeArquivoSanitizado = nomeLoja.toLowerCase().replace(/[^a-z0-9]/g, "_");
 
   if (formato === "json") {
+    // Transforma o objeto JSON em texto formatado para envio
     const stringJson = JSON.stringify(item, null, 2);
-    const blob = new Blob([stringJson], {
-      type: "application/json;charset=utf-8",
-    });
-    const arquivo = new File([blob], `avaria_${nomeArquivoSanitizado}.json`, {
-      type: "application/json",
-    });
+    
+    // Texto legível que acompanhará o envio (ótimo para WhatsApp / E-mail)
+    let textoEnvio = `*Relatório de Avaria - ${nomeLoja}*\n`;
+    textoEnvio += `Operador: ${item.operador || "Não informado"}\n`;
+    textoEnvio += `Status: ${item.status || "aberto"}\n\n`;
+    textoEnvio += `Dados Técnicos (JSON):\n\`\`\`json\n${stringJson}\n\`\`\``;
 
-    if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
+    // Se o navegador der suporte ao compartilhamento de texto simples
+    if (navigator.share) {
       try {
         await navigator.share({
-          files: [arquivo],
-          title: `JSON - Avaria ${nomeLoja}`,
-          text: `Segue em anexo o arquivo JSON da avaria de ${nomeLoja}`,
+          title: `Dados JSON - ${nomeLoja}`,
+          text: textoEnvio // Enviando o conteúdo diretamente como texto estruturado
         });
       } catch (err) {
-        console.log("Compartilhamento cancelado:", err);
+        console.log("Compartilhamento cancelado ou falhou:", err);
       }
     } else {
-      // Fallback para cópia em Área de Transferência se o compartilhamento de arquivos não for aceito no navegador desktop
-      await navigator.clipboard.writeText(stringJson);
-      alert("Os dados do JSON foram copiados para a área de transferência!");
+      // Fallback robusto para desktops ou navegadores antigos
+      try {
+        await navigator.clipboard.writeText(stringJson);
+        alert("O conteúdo JSON foi copiado para a sua Área de Transferência! Você já pode colá-lo no WhatsApp ou e-mail.");
+      } catch (clipErr) {
+        alert("Não foi possível compartilhar ou copiar os dados automaticamente.");
+      }
     }
-  } else if (formato === "pdf") {
-    // Fecha o modal de compartilhamento para liberar a visualização do print
+  } 
+  else if (formato === "pdf") {
     fecharModalShare();
 
     // Monta as linhas buscando a descrição correta no produtos.csv
@@ -268,7 +271,6 @@ async function compartilharItem(formato) {
       })
       .join("");
 
-    // Template para impressão / Salvamento em PDF limpo
     let templateHtml = `
       <!DOCTYPE html>
       <html lang="pt-BR">
@@ -284,7 +286,6 @@ async function compartilharItem(formato) {
               th { background: #333; color: #fff; padding: 10px; font-size: 0.9rem; }
               @media print {
                   body { padding: 0; }
-                  button { display: none; }
               }
           </style>
       </head>
@@ -308,7 +309,6 @@ async function compartilharItem(formato) {
               </table>
           </div>
           <script>
-              // Executa a impressão assim que a janela estiver pronta e fecha em seguida
               window.onload = function() {
                   window.print();
                   setTimeout(() => { window.close(); }, 500);
@@ -318,7 +318,6 @@ async function compartilharItem(formato) {
       </html>
     `;
 
-    // Cria um popup em tela cheia temporário para acionar a folha de PDF do sistema operacional
     const janelaImpressao = window.open("", "_blank");
     janelaImpressao.document.write(templateHtml);
     janelaImpressao.document.close();
