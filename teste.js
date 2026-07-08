@@ -108,7 +108,7 @@ function renderAvarias() {
 
     let iconHtml = "";
     if (avaria.status === "aberto" || avaria.status === "open") {
-      iconHtml = `<i class="fa-solid fa-file-circle-exclamation"></i>`;
+      iconHtml = `<i class="fa-solid fa-file-circle-exclamation open status-icon"></i>`;
     } else if (avaria.status === "encerrado" || avaria.status === "success") {
       iconHtml = `<i class="fa-solid fa-circle-check status-icon success"></i>`;
     } else {
