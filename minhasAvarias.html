@@ -342,14 +342,11 @@
         <div class="modal-content">
             <div class="modal-header">Exportar Registro de Avaria</div>
             <div class="modal-body">
-                <button class="btn-download btn-json" onclick="baixarArquivo('json')">
-                    <i class="fa-solid fa-file-code"></i> Salvar em JSON
+                <button class="btn-download btn-json" onclick="compartilharItem('json')">
+                    <i class="fa-solid fa-share-nodes"></i> Compartilhar em JSON
                 </button>
-                <button class="btn-download btn-html" onclick="baixarArquivo('html')">
-                    <i class="fa-solid fa-file-lines"></i> Salvar em HTML
-                </button>
-                <button class="btn-download btn-share-native" onclick="compartilharNativo()">
-                    <i class="fa-solid fa-share-nodes"></i> Compartilhar Relatório
+                <button class="btn-download btn-html" style="background-color: #e53e3e;" onclick="compartilharItem('pdf')">
+                    <i class="fa-solid fa-file-pdf"></i> Gerar Relatório em PDF
                 </button>
                 <button class="btn-download btn-modal-close" onclick="fecharModalShare()">Fechar</button>
             </div>
