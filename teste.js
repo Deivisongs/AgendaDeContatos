@@ -223,103 +223,102 @@ async function compartilharItem(formato) {
   const nomeLoja = item.loja || item.name || "avaria";
   const nomeArquivoSanitizado = nomeLoja.toLowerCase().replace(/[^a-z0-9]/g, "_");
 
+  // --- MODO TEXTO / JSON ---
   if (formato === "json") {
-    // Transforma o objeto JSON em texto formatado para envio
     const stringJson = JSON.stringify(item, null, 2);
-    
-    // Texto legível que acompanhará o envio (ótimo para WhatsApp / E-mail)
     let textoEnvio = `*Relatório de Avaria - ${nomeLoja}*\n`;
     textoEnvio += `Operador: ${item.operador || "Não informado"}\n`;
     textoEnvio += `Status: ${item.status || "aberto"}\n\n`;
     textoEnvio += `Dados Técnicos (JSON):\n\`\`\`json\n${stringJson}\n\`\`\``;
 
-    // Se o navegador der suporte ao compartilhamento de texto simples
     if (navigator.share) {
       try {
-        await navigator.share({
-          title: `Dados JSON - ${nomeLoja}`,
-          text: textoEnvio // Enviando o conteúdo diretamente como texto estruturado
-        });
-      } catch (err) {
-        console.log("Compartilhamento cancelado ou falhou:", err);
-      }
+        await navigator.share({ title: `JSON - ${nomeLoja}`, text: textoEnvio });
+      } catch (err) { console.log("Compartilhamento cancelado:", err); }
     } else {
-      // Fallback robusto para desktops ou navegadores antigos
-      try {
-        await navigator.clipboard.writeText(stringJson);
-        alert("O conteúdo JSON foi copiado para a sua Área de Transferência! Você já pode colá-lo no WhatsApp ou e-mail.");
-      } catch (clipErr) {
-        alert("Não foi possível compartilhar ou copiar os dados automaticamente.");
-      }
+      await navigator.clipboard.writeText(stringJson);
+      alert("JSON copiado para a Área de Transferência!");
     }
   } 
+  
+  // --- MODO PDF DIRETO (SEM IMPRESSORA) ---
   else if (formato === "pdf") {
     fecharModalShare();
 
-    // Monta as linhas buscando a descrição correta no produtos.csv
-    let linhasTabela = (item.itens || [])
-      .map((i) => {
-        const descricaoReal = obterDescricaoDoProduto(i);
-        return `
-          <tr>
-              <td style="padding:10px; border-bottom:1px solid #ddd;">${i.codigo}</td>
-              <td style="padding:10px; border-bottom:1px solid #ddd;">${descricaoReal}</td>
-              <td style="padding:10px; border-bottom:1px solid #ddd; text-align:center;">${i.quantidade}</td>
-              <td style="padding:10px; border-bottom:1px solid #ddd;">${i.localizacao || "-"}</td>
-          </tr>
-        `;
-      })
-      .join("");
+    // Acessa a biblioteca jsPDF globalmente
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
 
-    let templateHtml = `
-      <!DOCTYPE html>
-      <html lang="pt-BR">
-      <head>
-          <meta charset="UTF-8">
-          <title>Relatório de Avarias - ${nomeLoja}</title>
-          <style>
-              body { font-family: sans-serif; color: #333; padding: 20px; background: #fff; }
-              .container { max-width: 800px; margin: 0 auto; }
-              h2 { color: #2d3748; margin-bottom: 15px; border-bottom: 2px solid #333; padding-bottom: 8px; }
-              p { margin: 4px 0; color: #4a5568; font-size: 0.95rem; }
-              table { width: 100%; margin-top: 25px; border-collapse: collapse; text-align: left; }
-              th { background: #333; color: #fff; padding: 10px; font-size: 0.9rem; }
-              @media print {
-                  body { padding: 0; }
-              }
-          </style>
-      </head>
-      <body>
-          <div class="container">
-              <h2>Relatório de Produtos Avariados</h2>
-              <p><strong>Origem/Loja:</strong> ${nomeLoja}</p>
-              <p><strong>Operador:</strong> ${item.operador || "Não informado"}</p>
-              <p><strong>Status:</strong> ${item.status ? item.status.toUpperCase() : "ABERTO"}</p>
-              
-              <table>
-                  <thead>
-                      <tr>
-                          <th style="width: 20%;">Código</th>
-                          <th style="width: 50%;">Descrição do Item</th>
-                          <th style="width: 10%; text-align:center;">Qtd</th>
-                          <th style="width: 20%;">Localização</th>
-                      </tr>
-                  </thead>
-                  <tbody>${linhasTabela}</tbody>
-              </table>
-          </div>
-          <script>
-              window.onload = function() {
-                  window.print();
-                  setTimeout(() => { window.close(); }, 500);
-              }
-          </script>
-      </body>
-      </html>
-    `;
+    // Configuração de fontes e cabeçalho do PDF
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text("Relatório de Produtos Avariados", 14, 20);
 
-    const janelaImpressao = window.open("", "_blank");
-    janelaImpressao.document.write(templateHtml);
-    janelaImpressao.document.close();
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.text(`Origem/Loja: ${nomeLoja}`, 14, 30);
+    doc.text(`Operador: ${item.operador || "Não informado"}`, 14, 36);
+    doc.text(`Status: ${item.status ? item.status.toUpperCase() : "ABERTO"}`, 14, 42);
+
+    // Linha divisória
+    doc.setDrawColor(150);
+    doc.line(14, 48, 196, 48);
+
+    // Cabeçalho da Tabela no PDF
+    doc.setFont("helvetica", "bold");
+    doc.text("Código", 14, 55);
+    doc.text("Descrição do Item", 50, 55);
+    doc.text("Qtd", 155, 55);
+    doc.text("Localização", 175, 55);
+
+    doc.line(14, 58, 196, 58);
+    doc.setFont("helvetica", "normal");
+
+    // Preenchimento dos itens buscando as descrições do produtos.csv
+    let y = 66; // Posição vertical inicial dos itens
+    const itens = item.itens || [];
+
+    itens.forEach((i) => {
+      // Evita estourar o limite da página (adiciona nova página se necessário)
+      if (y > 275) {
+        doc.addPage();
+        y = 20;
+      }
+
+      const descricaoReal = obterDescricaoDoProduto(i);
+
+      // Trunca descrições muito longas para caber no espaço do PDF
+      const descTruncada = descricaoReal.length > 40 ? descricaoReal.substring(0, 38) + "..." : descricaoReal;
+
+      doc.text(String(i.codigo), 14, y);
+      doc.text(descTruncada, 50, y);
+      doc.text(String(i.quantidade), 155, y, { align: "center" });
+      doc.text(String(i.localizacao || "-"), 175, y);
+
+      y += 8; // Espaçamento para a próxima linha
+    });
+
+    // Converte o PDF gerado em um Blob binário
+    const pdfOutput = doc.output("blob");
+    
+    // Cria um arquivo físico virtual (.pdf) nomeado para o sistema operacional
+    const nomeArquivo = `relatorio_${nomeArquivoSanitizado}.pdf`;
+    const arquivoPdf = new File([pdfOutput], nomeArquivo, { type: "application/pdf" });
+
+    // Verifica se o celular aceita compartilhar arquivos via código
+    if (navigator.canShare && navigator.canShare({ files: [arquivoPdf] })) {
+      try {
+        await navigator.share({
+          files: [arquivoPdf],
+          title: `Relatório PDF - ${nomeLoja}`,
+          text: `Segue em anexo o relatório de avarias da loja ${nomeLoja}.`
+        });
+      } catch (err) {
+        console.log("Compartilhamento de PDF cancelado:", err);
+      }
+    } else {
+      // Se rodar em um navegador desktop antigo que não aceita partilha de arquivos, ele baixa o PDF
+      doc.save(nomeArquivo);
+    }
   }
 }
