@@ -113,16 +113,31 @@
             justify-content: space-between;
             align-items: center;
             cursor: pointer;
+            width: 100%; /* Garante total ocupação */
+            gap: 15px;   /* Cria um espaçamento seguro entre o texto e os botões */
         }
 
         .coleta-item:hover {
             background-color: rgba(0, 172, 237, 0.03);
         }
 
+        .coleta-info {
+            flex: 1;         /* Ocupa todo o espaço disponível, mas aceita encolher */
+            min-width: 0;    /* CRÍTICO: Permite que o flexbox encolha o texto além do tamanho natural */
+            display: flex;
+            flex-direction: column;
+        }
+
         .coleta-info .coleta-code {
             font-size: 1.1rem;
             font-weight: bold;
             color: var(--text-dark);
+            
+            /* Efeito de Reticências para travar o texto longo */
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
         }
 
         /* Classe de apoio para exibir o código menor na tela de avarias */
@@ -130,6 +145,12 @@
             font-size: 0.85rem;
             color: #555;
             margin-top: 2px;
+            
+            /* Efeito de Reticências também no subcode se necessário */
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
         }
 
         .coleta-info .coleta-time {
@@ -142,6 +163,7 @@
             display: flex;
             align-items: center;
             gap: 20px;
+            flex-shrink: 0; /* Impede que a quantidade e o lixo sejam esmagados */
         }
 
         .coleta-qty {
