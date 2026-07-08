@@ -1,10 +1,11 @@
 let listaAvarias = [];
 let indexSelecionadoContexto = null;
-// Altere para a constante correta de sua Store de Avarias se for diferente de STORE_NAME
 const INVENTORY_STORE = "avariasStore";
+let mapaProdutosCache = null; // Cache para evitar ler o CSV múltiplas vezes
 
 window.addEventListener("DOMContentLoaded", () => {
   carregarDadosIndexedDB();
+  carregarProdutosCSV(); // Pré-carrega o CSV ao iniciar a página
 
   document.addEventListener("click", (e) => {
     const popover = document.getElementById("globalPopover");
@@ -17,6 +18,40 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 });
 
+// Função para ler o arquivo produtos.csv e transformá-lo em um mapa rápido de busca
+async function carregarProdutosCSV() {
+  try {
+    const response = await fetch("produtos.csv");
+    if (!response.ok)
+      throw new Error("Não foi possível carregar o arquivo produtos.csv");
+    const textoCsv = await response.text();
+
+    mapaProdutosCache = new Map();
+    const linhas = textoCsv.split(/\r?\n/);
+
+    linhas.forEach((linha) => {
+      if (!linha.trim()) return;
+      // Trata delimitador comum de CSV (ponto e vírgula ou vírgula)
+      const colunas = linha.includes(";") ? linha.split(";") : linha.split(",");
+      if (colunas.length >= 2) {
+        const codigo = colunas[0].trim();
+        const descricao = colunas[1].trim();
+        mapaProdutosCache.set(codigo, descricao);
+      }
+    });
+  } catch (error) {
+    console.error("Erro ao processar produtos.csv:", error);
+  }
+}
+
+// Retorna a descrição correta baseada no código do produto
+function obterDescricaoDoProduto(item) {
+  if (mapaProdutosCache && mapaProdutosCache.has(item.codigo)) {
+    return mapaProdutosCache.get(item.codigo);
+  }
+  return item.descricaoManual || item.descricao || "Produto Coletado";
+}
+
 async function carregarDadosIndexedDB() {
   try {
     const db = await abrirBanco();
@@ -25,12 +60,7 @@ async function carregarDadosIndexedDB() {
       const store = transaction.objectStore(INVENTORY_STORE);
       const request = store.getAll();
 
-      request.onsuccess = () => {
-        const todos = request.result || [];
-        // Filtra apenas registros que contenham dados de avaria (ou baseado na sua flag de tipo se houver)
-        // Caso seu banco use chaves diferentes ou unificadas, deixamos adaptável:
-        resolve(todos);
-      };
+      request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => reject(request.error);
     });
   } catch (e) {
@@ -46,7 +76,6 @@ async function salvarAvariaNoIndexedDB(avaria) {
     const transaction = db.transaction(INVENTORY_STORE, "readwrite");
     const store = transaction.objectStore(INVENTORY_STORE);
     const request = store.put(avaria);
-
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
   });
@@ -58,7 +87,6 @@ async function deletarAvariaNoIndexedDB(id) {
     const transaction = db.transaction(INVENTORY_STORE, "readwrite");
     const store = transaction.objectStore(INVENTORY_STORE);
     const request = store.delete(id);
-
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
   });
@@ -88,22 +116,21 @@ function renderAvarias() {
     }
 
     const exibicaoId = avaria.id !== undefined ? avaria.id : index + 1;
-    // Valida se o registro veio de avarias (loja) ou balanço padrão (name)
     const nomeExibicao = avaria.loja || avaria.name || "Sem identificação";
 
     card.innerHTML = `
-                            <div class="balanco-info">
-                                <div class="balanco-id">Avaria #${exibicaoId}</div>
-                                <div class="balanco-name">${nomeExibicao}</div>
-                                <div class="balanco-date">Operador: ${avaria.operador || "Não informado"}</div>
-                            </div>
-                            <div class="balanco-actions-area">
-                                ${iconHtml}
-                                <button class="btn-action-trigger" data-index="${index}">
-                                    <i class="fa-solid fa-ellipsis-vertical"></i>
-                                </button>
-                            </div>
-                        `;
+      <div class="balanco-info">
+          <div class="balanco-id">Avaria #${exibicaoId}</div>
+          <div class="balanco-name">${nomeExibicao}</div>
+          <div class="balanco-date">Operador: ${avaria.operador || "Não informado"}</div>
+      </div>
+      <div class="balanco-actions-area">
+          ${iconHtml}
+          <button class="btn-action-trigger" data-index="${index}">
+              <i class="fa-solid fa-ellipsis-vertical"></i>
+          </button>
+      </div>
+    `;
 
     card.querySelector(".btn-action-trigger").addEventListener("click", (e) => {
       e.stopPropagation();
@@ -120,12 +147,10 @@ function togglePopover(button, index) {
   indexSelecionadoContexto = index;
 
   const item = listaAvarias[index];
-
-  if (item.status === "encerrado" || item.status === "success") {
-    btnToggleStatus.textContent = "Reabrir";
-  } else {
-    btnToggleStatus.textContent = "Encerrar";
-  }
+  btnToggleStatus.textContent =
+    item.status === "encerrado" || item.status === "success"
+      ? "Reabrir"
+      : "Encerrar";
 
   const rect = button.getBoundingClientRect();
   const containerRect = document
@@ -134,7 +159,6 @@ function togglePopover(button, index) {
 
   popover.style.top = `${rect.top - containerRect.top - 10}px`;
   popover.style.left = `${rect.left - containerRect.left - 115}px`;
-
   popover.classList.toggle("active");
 }
 
@@ -144,7 +168,6 @@ async function handleMenuAction(acao) {
 
   if (indexSelecionadoContexto === null) return;
   const item = listaAvarias[indexSelecionadoContexto];
-
   const identificadorLink =
     item.id !== undefined ? item.id : indexSelecionadoContexto;
 
@@ -153,11 +176,10 @@ async function handleMenuAction(acao) {
   } else if (acao === "exportar") {
     abrirModalShare();
   } else if (acao === "toggleStatus") {
-    if (item.status === "encerrado" || item.status === "success") {
-      item.status = "aberto";
-    } else {
-      item.status = "encerrado";
-    }
+    item.status =
+      item.status === "encerrado" || item.status === "success"
+        ? "aberto"
+        : "encerrado";
     await salvarAvariaNoIndexedDB(item);
     await carregarDadosIndexedDB();
   } else if (acao === "cancelar") {
@@ -185,7 +207,6 @@ function abrirModalShare() {
     alert("Este registro de avaria não possui itens coletados para exportar.");
     return;
   }
-
   document.getElementById("modalShare").classList.add("active");
 }
 
@@ -194,120 +215,112 @@ function fecharModalShare() {
 }
 
 // ========================================================
-// GERAÇÃO DE ARQUIVOS (JSON & HTML)
+// NOVOS MÉTODOS DE COMPARTILHAMENTO ATUALIZADOS
 // ========================================================
 
-function gerarConteudo(tipo) {
+async function compartilharItem(formato) {
   const item = listaAvarias[indexSelecionadoContexto];
   const nomeLoja = item.loja || item.name || "avaria";
   const nomeArquivoSanitizado = nomeLoja
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "_");
 
-  if (tipo === "json") {
+  if (formato === "json") {
     const stringJson = JSON.stringify(item, null, 2);
-    return {
-      blob: new Blob([stringJson], { type: "application/json;charset=utf-8" }),
-      filename: `avaria_${nomeArquivoSanitizado}.json`,
-      text: stringJson,
-    };
-  } else {
-    // Renderiza um documento HTML limpo contendo uma tabela estilizada com os dados coletados
+    const blob = new Blob([stringJson], {
+      type: "application/json;charset=utf-8",
+    });
+    const arquivo = new File([blob], `avaria_${nomeArquivoSanitizado}.json`, {
+      type: "application/json",
+    });
+
+    if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
+      try {
+        await navigator.share({
+          files: [arquivo],
+          title: `JSON - Avaria ${nomeLoja}`,
+          text: `Segue em anexo o arquivo JSON da avaria de ${nomeLoja}`,
+        });
+      } catch (err) {
+        console.log("Compartilhamento cancelado:", err);
+      }
+    } else {
+      // Fallback para cópia em Área de Transferência se o compartilhamento de arquivos não for aceito no navegador desktop
+      await navigator.clipboard.writeText(stringJson);
+      alert("Os dados do JSON foram copiados para a área de transferência!");
+    }
+  } else if (formato === "pdf") {
+    // Fecha o modal de compartilhamento para liberar a visualização do print
+    fecharModalShare();
+
+    // Monta as linhas buscando a descrição correta no produtos.csv
     let linhasTabela = (item.itens || [])
-      .map(
-        (i) => `
-                            <tr>
-                                <td style="padding:10px; border-bottom:1px solid #ddd;">${i.codigo}</td>
-                                <td style="padding:10px; border-bottom:1px solid #ddd;">${i.descricaoManual || i.descricao || "Produto Cadastrado"}</td>
-                                <td style="padding:10px; border-bottom:1px solid #ddd; text-align:center;">${i.quantidade}</td>
-                                <td style="padding:10px; border-bottom:1px solid #ddd;">${i.localizacao || "-"}</td>
-                            </tr>
-                        `,
-      )
+      .map((i) => {
+        const descricaoReal = obterDescricaoDoProduto(i);
+        return `
+          <tr>
+              <td style="padding:10px; border-bottom:1px solid #ddd;">${i.codigo}</td>
+              <td style="padding:10px; border-bottom:1px solid #ddd;">${descricaoReal}</td>
+              <td style="padding:10px; border-bottom:1px solid #ddd; text-align:center;">${i.quantidade}</td>
+              <td style="padding:10px; border-bottom:1px solid #ddd;">${i.localizacao || "-"}</td>
+          </tr>
+        `;
+      })
       .join("");
 
+    // Template para impressão / Salvamento em PDF limpo
     let templateHtml = `
-                            <!DOCTYPE html>
-                            <html lang="pt-BR">
-                            <head>
-                                <meta charset="UTF-8">
-                                <title>Relatório de Avarias - ${nomeLoja}</title>
-                            </head>
-                            <body style="font-family:sans-serif; margin:30px; color:#333; background-color:#f4f7fc;">
-                                <div style="background:#fff; padding:20px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
-                                    <h2 style="color:#333; margin-bottom:5px;">Relatório de Produtos Avariados</h2>
-                                    <p style="margin:2px 0; color:#666;"><strong>Origem/Loja:</strong> ${nomeLoja}</p>
-                                    <p style="margin:2px 0; color:#666;"><strong>Operador:</strong> ${item.operador || "Não informado"}</p>
-                                    <p style="margin:2px 0; color:#666;"><strong>Status:</strong> ${item.status ? item.status.toUpperCase() : "ABERTO"}</p>
-                                    <table style="width:100%; margin-top:20px; border-collapse:collapse; text-align:left;">
-                                        <thead>
-                                            <tr style="background:#333; color:#fff;">
-                                                <th style="padding:10px;">Código</th>
-                                                <th style="padding:10px;">Descrição do Item</th>
-                                                <th style="padding:10px; text-align:center;">Qtd</th>
-                                                <th style="padding:10px;">Localização</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>${linhasTabela}</tbody>
-                                    </table>
-                                </div>
-                            </body>
-                            </html>
-                        `;
-    return {
-      blob: new Blob([templateHtml], { type: "text/html;charset=utf-8" }),
-      filename: `relatorio_${nomeArquivoSanitizado}.html`,
-      text: templateHtml,
-    };
-  }
-}
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+          <meta charset="UTF-8">
+          <title>Relatório de Avarias - ${nomeLoja}</title>
+          <style>
+              body { font-family: sans-serif; color: #333; padding: 20px; background: #fff; }
+              .container { max-width: 800px; margin: 0 auto; }
+              h2 { color: #2d3748; margin-bottom: 15px; border-bottom: 2px solid #333; padding-bottom: 8px; }
+              p { margin: 4px 0; color: #4a5568; font-size: 0.95rem; }
+              table { width: 100%; margin-top: 25px; border-collapse: collapse; text-align: left; }
+              th { background: #333; color: #fff; padding: 10px; font-size: 0.9rem; }
+              @media print {
+                  body { padding: 0; }
+                  button { display: none; }
+              }
+          </style>
+      </head>
+      <body>
+          <div class="container">
+              <h2>Relatório de Produtos Avariados</h2>
+              <p><strong>Origem/Loja:</strong> ${nomeLoja}</p>
+              <p><strong>Operador:</strong> ${item.operador || "Não informado"}</p>
+              <p><strong>Status:</strong> ${item.status ? item.status.toUpperCase() : "ABERTO"}</p>
+              
+              <table>
+                  <thead>
+                      <tr>
+                          <th style="width: 20%;">Código</th>
+                          <th style="width: 50%;">Descrição do Item</th>
+                          <th style="width: 10%; text-align:center;">Qtd</th>
+                          <th style="width: 20%;">Localização</th>
+                      </tr>
+                  </thead>
+                  <tbody>${linhasTabela}</tbody>
+              </table>
+          </div>
+          <script>
+              // Executa a impressão assim que a janela estiver pronta e fecha em seguida
+              window.onload = function() {
+                  window.print();
+                  setTimeout(() => { window.close(); }, 500);
+              }
+          </script>
+      </body>
+      </html>
+    `;
 
-function baixarArquivo(tipo) {
-  const arquivo = gerarConteudo(tipo);
-
-  const linkTemporario = document.createElement("a");
-  linkTemporario.href = URL.createObjectURL(arquivo.blob);
-  linkTemporario.download = arquivo.filename;
-
-  document.body.appendChild(linkTemporario);
-  linkTemporario.click();
-  document.body.removeChild(linkTemporario);
-}
-
-// Compartilhamento Web Nativo (Funciona perfeitamente em dispositivos Mobile/Android/iOS)
-
-async function compartilharNativo() {
-  const item = listaAvarias[indexSelecionadoContexto];
-  const nomeLoja = item.loja || item.name || "Avaria";
-
-  // Cria um resumo simples em texto legível para o WhatsApp/E-mail
-  let resumoTexto = `*Relatório de Avarias - ${nomeLoja}*\n`;
-  resumoTexto += `Operador: ${item.operador || "Não informado"}\n\n`;
-  resumoTexto += `Itens Coletados:\n`;
-
-  (item.itens || []).forEach((i) => {
-    const desc = i.descricaoManual || i.descricao || "Item";
-    resumoTexto += `- Cod: ${i.codigo} | Qtd: ${i.quantidade} | ${desc}\n`;
-  });
-
-  if (navigator.share) {
-    try {
-      await navigator.share({
-        title: `Avarias - ${nomeLoja}`,
-        text: resumoTexto,
-      });
-    } catch (err) {
-      console.log("Compartilhamento cancelado ou não executado: ", err);
-    }
-  } else {
-    // Fallback para área de transferência caso o navegador de desktop seja antigo e não dê suporte
-    try {
-      await navigator.clipboard.writeText(resumoTexto);
-      alert(
-        "Texto do relatório copiado para a Área de Transferência com sucesso! Agora você pode colá-lo no WhatsApp.",
-      );
-    } catch (err) {
-      alert("O seu navegador não possui suporte para compartilhamento nativo.");
-    }
+    // Cria um popup em tela cheia temporário para acionar a folha de PDF do sistema operacional
+    const janelaImpressao = window.open("", "_blank");
+    janelaImpressao.document.write(templateHtml);
+    janelaImpressao.document.close();
   }
 }
